@@ -8,8 +8,6 @@ from matplotlib import pyplot as plt
 
 import rom_operator_inference as opinf
 
-from . import set_up_basis_data
-
 
 # Basis computation ===========================================================
 def test_pod_basis(set_up_basis_data):

@@ -13,7 +13,6 @@ def test_reproject_discrete(n=50, m=5, r=3):
     """Test pre._reprojection.reproject_discrete()."""
     # Construct dummy operators.
     k = 1 + r + r*(r+1)//2
-    I = np.eye(n)
     D = np.diag(1 - np.logspace(-1, -2, n))
     W = la.qr(np.random.normal(size=(n,n)))[0]
     A = W.T @ D @ W
@@ -30,11 +29,12 @@ def test_reproject_discrete(n=50, m=5, r=3):
 
     # Try with bad initial condition shape.
     with pytest.raises(ValueError) as exc:
-        opinf.pre.reproject_discrete(lambda x:x, Vr, x0[:-1], k)
+        opinf.pre.reproject_discrete(lambda x: x, Vr, x0[:-1], k)
     assert exc.value.args[0] == "basis Vr and initial condition x0 not aligned"
 
     # Linear case, no inputs.
-    f = lambda x: A @ x
+    def f(x):
+        return A @ x
     X_ = opinf.pre.reproject_discrete(f, Vr, x0, k)
     assert X_.shape == (r,k)
     rom = opinf.InferredDiscreteROM("A").fit(Vr, X_)
@@ -42,7 +42,8 @@ def test_reproject_discrete(n=50, m=5, r=3):
     assert np.allclose(rom.A_, Vr.T @ A @ Vr)
 
     # Linear case, 1D inputs.
-    f = lambda x, u: A @ x + B1d * u
+    def f(x, u):
+        return A @ x + B1d * u
     X_ = opinf.pre.reproject_discrete(f, Vr, x0, k, U1d)
     assert X_.shape == (r,k)
     rom = opinf.InferredDiscreteROM("AB").fit(Vr, X_, U1d)
@@ -51,7 +52,8 @@ def test_reproject_discrete(n=50, m=5, r=3):
     assert np.allclose(rom.B_.flatten(), Vr.T @ B1d)
 
     # Linear case, 2D inputs.
-    f = lambda x, u: A @ x + B @ u
+    def f(x, u):
+        return A @ x + B @ u
     X_ = opinf.pre.reproject_discrete(f, Vr, x0, k, U)
     assert X_.shape == (r,k)
     rom = opinf.InferredDiscreteROM("AB").fit(Vr, X_, U)
@@ -60,7 +62,8 @@ def test_reproject_discrete(n=50, m=5, r=3):
     assert np.allclose(rom.B_, Vr.T @ B)
 
     # Quadratic case, no inputs.
-    f = lambda x: A @ x + H @ np.kron(x,x)
+    def f(x):
+        return A @ x + H @ np.kron(x,x)
     X_ = opinf.pre.reproject_discrete(f, Vr, x0, k)
     assert X_.shape == (r,k)
     rom = opinf.InferredDiscreteROM("AH").fit(Vr, X_)
@@ -77,7 +80,6 @@ def test_reproject_continuous(n=100, m=20, r=10):
     """Test pre._reprojection.reproject_continuous()."""
     # Construct dummy operators.
     k = 1 + r + r*(r+1)//2
-    I = np.eye(n)
     D = np.diag(1 - np.logspace(-1, -2, n))
     W = la.qr(np.random.normal(size=(n,n)))[0]
     A = W.T @ D @ W
@@ -98,7 +100,8 @@ def test_reproject_continuous(n=100, m=20, r=10):
         f"X and Vr not aligned, first dimension {n-1} != {n}"
 
     # Linear case, no inputs.
-    f = lambda x: A @ x
+    def f(x):
+        return A @ x
     X_, Xdot_ = opinf.pre.reproject_continuous(f, Vr, X)
     assert X_.shape == (r,k)
     assert Xdot_.shape == (r,k)
@@ -106,7 +109,8 @@ def test_reproject_continuous(n=100, m=20, r=10):
     assert np.allclose(rom.A_, Vr.T @ A @ Vr)
 
     # Linear case, 1D inputs.
-    f = lambda x, u: A @ x + B1d * u
+    def f(x, u):
+        return A @ x + B1d * u
     X_, Xdot_ = opinf.pre.reproject_continuous(f, Vr, X, U1d)
     assert X_.shape == (r,k)
     assert Xdot_.shape == (r,k)
@@ -115,7 +119,8 @@ def test_reproject_continuous(n=100, m=20, r=10):
     assert np.allclose(rom.B_.flatten(), Vr.T @ B1d)
 
     # Linear case, 2D inputs.
-    f = lambda x, u: A @ x + B @ u
+    def f(x, u):
+        return A @ x + B @ u
     X_, Xdot_ = opinf.pre.reproject_continuous(f, Vr, X, U)
     assert X_.shape == (r,k)
     assert Xdot_.shape == (r,k)
@@ -124,7 +129,8 @@ def test_reproject_continuous(n=100, m=20, r=10):
     assert np.allclose(rom.B_, Vr.T @ B)
 
     # Quadratic case, no inputs.
-    f = lambda x: A @ x + H @ np.kron(x,x)
+    def f(x):
+        return A @ x + H @ np.kron(x,x)
     X_, Xdot_ = opinf.pre.reproject_continuous(f, Vr, X)
     assert X_.shape == (r,k)
     assert Xdot_.shape == (r,k)

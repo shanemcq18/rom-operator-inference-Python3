@@ -3,12 +3,11 @@
 
 import pytest
 import numpy as np
-import scipy.linalg as la
 
 import rom_operator_inference as opinf
 
 from .test_base import TestAffineMixin
-from .. import _get_data, _get_operators, MODEL_FORMS, MODEL_KEYS
+from .. import _get_operators, MODEL_FORMS, MODEL_KEYS
 
 
 # Affine intrusive mixin (private) ============================================
@@ -37,16 +36,16 @@ class TestAffineIntrusiveMixin:
         # Get test data.
         Vr = np.random.random((n,r))
         shapes = {
-                    "c":   (n,),
-                    "A":   (n,n),
-                    "H":   (n,n**2),
-                    "G":   (n,n**3),
-                    "B":   (n,m),
-                    "c_":  (r,),
-                    "A_":  (r,r),
-                    "H_":  (r,r*(r+1)//2),
-                    "G_":  (r,r*(r+1)*(r+2)//6),
-                    "B_":  (r,m),
+                    "c": (n,),
+                    "A": (n,n),
+                    "H": (n,n**2),
+                    "G": (n,n**3),
+                    "B": (n,m),
+                    "c_": (r,),
+                    "A_": (r,r),
+                    "H_": (r,r*(r+1)//2),
+                    "G_": (r,r*(r+1)*(r+2)//6),
+                    "B_": (r,m),
                  }
 
         # Get test operators.
@@ -125,7 +124,8 @@ class TestAffineIntrusiveMixin:
         assert model.B_.shape == (r,1)
 
         # TEST SET 2: Nontrivial affines.
-        ident = lambda a: a
+        def ident(a):
+            return a
         affines = {"c": [ident, ident],
                    "A": [ident, ident, ident],
                    "H": [ident],
@@ -222,7 +222,7 @@ class TestAffineIntrusiveMixin:
         Hc = np.random.random((n,n*(n + 1)//2))
         Gc = np.random.random((n,n*(n + 1)*(n + 2)//6))
         model._project_operators({"H": [ident], "G": [ident]},
-                                 {"H": [Hc],    "G": [Gc]})
+                                 {"H": [Hc], "G": [Gc]})
         assert model.H.shape == (n,n**2)
         assert model.G.shape == (n,n**3)
 
@@ -251,7 +251,8 @@ class TestAffineIntrusiveMixin:
                 model.fit(Vr, {}, ops)
 
         # TEST SET 2: Nontrivial affines.
-        ident = lambda a: a
+        def ident(a):
+            return a
         affines = {"c": [ident, ident],
                    "A": [ident, ident, ident],
                    "H": [ident],
@@ -282,7 +283,8 @@ class TestAffineIntrusiveDiscreteROM:
         TestAffineIntrusiveMixin()._test_fit(opinf.AffineIntrusiveDiscreteROM)
 
     def test_predict(self):
-        """Test _core._affine._intrusive.AffineIntrusiveDiscreteROM.predict()."""
+        """Test _core._affine._intrusive.AffineIntrusiveDiscreteROM.predict().
+        """
         TestAffineMixin()._test_predict(opinf.AffineIntrusiveDiscreteROM)
 
 
@@ -290,8 +292,11 @@ class TestAffineIntrusiveContinuousROM:
     """Test _core._affine._intrusive.AffineIntrusiveContinuousROM."""
     def test_fit(self):
         """Test _core._affine._intrusive.AffineIntrusiveContinuousROM.fit()."""
-        TestAffineIntrusiveMixin()._test_fit(opinf.AffineIntrusiveContinuousROM)
+        TestAffineIntrusiveMixin()._test_fit(
+            opinf.AffineIntrusiveContinuousROM)
 
     def test_predict(self):
-        """Test _core._affine._intrusive.AffineIntrusiveContinuousROM.predict()."""
+        """Test
+        _core._affine._intrusive.AffineIntrusiveContinuousROM.predict().
+        """
         TestAffineMixin()._test_predict(opinf.AffineIntrusiveContinuousROM)

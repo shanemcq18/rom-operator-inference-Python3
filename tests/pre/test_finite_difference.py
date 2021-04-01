@@ -6,10 +6,9 @@ import numpy as np
 
 import rom_operator_inference as opinf
 
-from . import set_up_uniform_difference_data, set_up_nonuniform_difference_data
-
 
 # Derivative approximation ====================================================
+@pytest.mark.usefixtures("set_up_uniform_difference_data")
 def test_fwd4(set_up_uniform_difference_data):
     """Test pre._finite_difference._fwd4()."""
     dynamicstate = set_up_uniform_difference_data

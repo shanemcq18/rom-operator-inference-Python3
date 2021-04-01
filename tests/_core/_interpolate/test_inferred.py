@@ -36,7 +36,8 @@ class TestInterpolatedInferredDiscreteROM:
         # Try with non-scalar parameters.
         # with pytest.raises(ValueError) as ex:
         #     rom.fit(Vr, [np.array([1,1]), np.array([2,2])], Xs)
-        # assert ex.value.args[0] == "only scalar parameter values are supported"
+        # assert ex.value.args[0] == "only scalar parameter values
+        #     are supported"
 
         # Try with bad number of Xs.
         with pytest.raises(ValueError) as ex:
@@ -117,7 +118,8 @@ class TestInterpolatedInferredContinuousROM:
         # Try with non-scalar parameters.
         # with pytest.raises(ValueError) as ex:
         #     rom.fit(Vr, [np.array([1,1]), np.array([2,2])], Xs, Xdots)
-        # assert ex.value.args[0] == "only scalar parameter values are supported"
+        # assert ex.value.args[0] == "only scalar parameter values
+        #     are supported"
 
         # Try with bad number of Xs.
         with pytest.raises(ValueError) as ex:
@@ -168,7 +170,8 @@ class TestInterpolatedInferredContinuousROM:
         x0 = np.zeros(n)
         nt = 5
         t = np.linspace(0, .01*nt, nt)
-        u = lambda t: np.zeros(m)
+        def u(t):
+            return np.zeros(m)
 
         # Fit / predict with no inputs.
         rom = opinf.InterpolatedInferredContinuousROM("AH")

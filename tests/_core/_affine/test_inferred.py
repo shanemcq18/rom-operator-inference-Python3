@@ -190,7 +190,6 @@ class TestAffineInferredMixin:
         X_, _, U = _get_data(r, k, m)
         θs = [lambda µ: np.sin(µ[0]), lambda µ: µ[0] + µ[1],
               lambda µ: np.cos(µ[1]), lambda µ: np.sin(µ[1])]
-        µs = np.arange(1, 2*s+1).reshape((s,2))
         affines = {"c": θs[:2],
                    "A": θs,
                    "H": θs[:1],
@@ -210,8 +209,8 @@ class TestAffineInferredMixin:
             if 'B' in form:
                 model.m = m
             d = opinf.lstsq.lstsq_size(form, r, model.m, affines)
-            O = np.random.random((r,d))
-            model._extract_operators(affines, O)
+            Ohat = np.random.random((r,d))
+            model._extract_operators(affines, Ohat)
             for prefix in MODEL_KEYS:
                 attr = prefix+'_'
                 assert hasattr(model, attr)
@@ -255,7 +254,7 @@ class TestAffineInferredMixin:
             model = ModelClass(form)
             model.fit(*args, Us=Us if "B" in form else None)
 
-            args[2] = {} # Non-affine case.
+            args[2] = {}    # Non-affine case.
             model.fit(*args, Us=Us if "B" in form else None)
 
         def _test_output_shapes(model):

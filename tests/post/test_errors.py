@@ -7,8 +7,6 @@ import scipy.linalg as la
 
 import rom_operator_inference as opinf
 
-from . import set_up_error_data
-
 
 def test_absolute_and_relative_error(set_up_error_data):
     """Test post._errors._absolute_and_relative_error() (helper function)."""
@@ -17,12 +15,15 @@ def test_absolute_and_relative_error(set_up_error_data):
 
     # Frobenious norm
     abs_err, rel_err = opinf.post._errors._absolute_and_relative_error(X, Y,
-                                                                      la.norm)
+                                                                       la.norm)
     assert isinstance(abs_err, float)
     assert isinstance(rel_err, float)
 
-    # Euclidean norm, columnwise
-    eucnorm = lambda z: la.norm(z, axis=0)
+    def eucnorm(z):
+        """Euclidean norm, columnwise."""
+        return la.norm(z, axis=0, ord=2)
+
+    # Euclidean norm
     abs_err, rel_err = opinf.post._errors._absolute_and_relative_error(X, Y,
                                                                        eucnorm)
     assert abs_err.shape == rel_err.shape == (X.shape[1],)
@@ -31,7 +32,7 @@ def test_absolute_and_relative_error(set_up_error_data):
 def test_frobenius_error(set_up_error_data):
     """Test post.frobenius_error()."""
     error_data = set_up_error_data
-    X, Y, t = error_data.truth, error_data.approximation, error_data.time
+    X, Y, _ = error_data.truth, error_data.approximation, error_data.time
 
     # Try with bad shapes.
     with pytest.raises(ValueError) as exc:

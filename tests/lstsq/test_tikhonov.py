@@ -201,8 +201,6 @@ class TestSolverL2:
     # Validation --------------------------------------------------------------
     def test_process_regularizer(self, k=20, d=11, r=3):
         solver = opinf.lstsq.SolverL2()
-        A = np.empty((k,d))
-        B = np.empty((k,r))
 
         # Try with nonscalar regularizer.
         with pytest.raises(TypeError) as ex:
@@ -216,8 +214,8 @@ class TestSolverL2:
         assert ex.value.args[0] == \
             "regularization hyperparameter λ must be non-negative"
 
-        l = np.random.uniform()
-        assert solver._process_regularizer(l) == l**2
+        λ = np.random.uniform()
+        assert solver._process_regularizer(λ) == λ**2
 
     # Helper methods ----------------------------------------------------------
     def test_Σinv(self, d=10, ntests=5):
@@ -225,8 +223,8 @@ class TestSolverL2:
         solver = opinf.lstsq.SolverL2()
         Σ = np.random.standard_normal(d)
         solver._Σ = Σ
-        for l in [0] + np.random.uniform(1, 10, ntests).tolist():
-            assert np.allclose(solver._Σinv(l), Σ / (Σ**2 + l**2))
+        for λ in [0] + np.random.uniform(1, 10, ntests).tolist():
+            assert np.allclose(solver._Σinv(λ), Σ / (Σ**2 + λ**2))
 
     # Main methods ------------------------------------------------------------
     def test_fit(self, k=20, d=11, r=3):
@@ -236,8 +234,8 @@ class TestSolverL2:
         B = np.random.standard_normal((k,r))
 
         solver.fit(A, B)
-        for attr, shape in zip(["_V",  "_Σ", "_UtB",   "A",   "B"],
-                               [(d,d), (d,),  (d,r), (k,d), (k,r)]):
+        for attr, shape in [("_V", (d,d)), ("_Σ", (d,)),
+                            ("_UtB", (d,r)), ("A", (k,d)), ("B", (k,r))]:
             assert hasattr(solver, attr)
             obj = getattr(solver, attr)
             assert isinstance(obj, np.ndarray)
@@ -325,17 +323,17 @@ class TestSolverL2:
         B = np.zeros((d,r))
         solver.fit(A, B)
         assert np.isclose(solver.regcond(0), d)
-        for l in np.random.uniform(1, 10, ntests):
-            assert np.isclose(solver.regcond(l),
-                              np.sqrt((d**2 + l**2)/(1 + l**2)))
+        for λ in np.random.uniform(1, 10, ntests):
+            assert np.isclose(solver.regcond(λ),
+                              np.sqrt((d**2 + λ**2)/(1 + λ**2)))
 
         # Rectangular, dense tests.
         A = np.random.standard_normal((k,d))
         B = np.random.standard_normal((k,r))
         solver.fit(A, B)
-        for l in np.random.uniform(1, 10, ntests):
-            Apad = np.vstack((A, l*np.eye(d)))
-            assert np.isclose(solver.regcond(l), np.linalg.cond(Apad))
+        for λ in np.random.uniform(1, 10, ntests):
+            Apad = np.vstack((A, λ*np.eye(d)))
+            assert np.isclose(solver.regcond(λ), np.linalg.cond(Apad))
 
     def test_residual(self, k=20, d=11, r=3, ntests=5):
         """Test lstsq._tikhonov.SolverL2.residual()."""
@@ -358,12 +356,12 @@ class TestSolverL2:
 
         # Two-dimensional tests.
         X = np.random.standard_normal((d,r))
-        for l in [0] + np.random.uniform(1, 10, ntests).tolist():
-            residual = solver.residual(X, l)
+        for λ in [0] + np.random.uniform(1, 10, ntests).tolist():
+            residual = solver.residual(X, λ)
             assert isinstance(residual, np.ndarray)
             assert residual.shape == (r,)
             ans = la.norm(A @ X - B, ord=2, axis=0)**2
-            ans += la.norm(l*np.eye(d) @ X, ord=2, axis=0)**2
+            ans += la.norm(λ*np.eye(d) @ X, ord=2, axis=0)**2
             assert np.allclose(residual, ans)
 
         # One-dimensional tests.
@@ -371,10 +369,10 @@ class TestSolverL2:
         solver.fit(A, b)
         assert solver.r == 1
         x = np.random.standard_normal(d)
-        for l in [0] + np.random.uniform(0, 10, ntests).tolist():
-            residual = solver.residual(x, l)
+        for λ in [0] + np.random.uniform(0, 10, ntests).tolist():
+            residual = solver.residual(x, λ)
             assert isinstance(residual, float)
-            ans = np.linalg.norm(A @ x - b)**2 + np.linalg.norm(l*x)**2
+            ans = np.linalg.norm(A @ x - b)**2 + np.linalg.norm(λ*x)**2
             assert np.isclose(residual, ans)
 
 
@@ -418,8 +416,8 @@ class TestSolverL2Decoupled:
             solver.predict(λs[:-1])
         assert ex.value.args[0] == "len(λs) != number of columns of B"
 
-        I = np.eye(d)
-        Apads = [np.vstack((A, λ*I)) for λ in λs]
+        Id = np.eye(d)
+        Apads = [np.vstack((A, λ*Id)) for λ in λs]
         Bpad = np.vstack((B, np.zeros((d,r))))
         X1 = np.column_stack([la.lstsq(Apad, Bpad[:,j])[0]
                               for j,Apad in enumerate(Apads)])
@@ -441,18 +439,18 @@ class TestSolverL2Decoupled:
         B = np.zeros((d,r))
         solver.fit(A, B)
         assert np.allclose(solver.regcond([0]*r), [d]*r)
-        l = np.random.uniform(1, 10, r)
-        assert np.allclose(solver.regcond(l),
-                           np.sqrt((d**2 + l**2)/(1 + l**2)))
+        λ = np.random.uniform(1, 10, r)
+        assert np.allclose(solver.regcond(λ),
+                           np.sqrt((d**2 + λ**2)/(1 + λ**2)))
 
         # Rectangular, dense tests.
         A = np.random.standard_normal((k,d))
         B = np.random.standard_normal((k,r))
         solver.fit(A, B)
-        l = np.random.uniform(1, 10, r)
-        I = np.eye(d)
-        conds = [np.linalg.cond(np.vstack((A, ll*I))) for ll in l]
-        assert np.allclose(solver.regcond(l), conds)
+        λ = np.random.uniform(1, 10, r)
+        Id = np.eye(d)
+        conds = [np.linalg.cond(np.vstack((A, λλ*Id))) for λλ in λ]
+        assert np.allclose(solver.regcond(λ), conds)
 
     def test_residual(self, k=20, d=11, r=3):
         """Test lstsq._tikhonov.SolverL2Decoupled.residual()."""
@@ -559,8 +557,8 @@ class TestSolverTikhonov:
         B = np.random.standard_normal((k,r))
 
         solver.fit(A, B)
-        for attr, shape in zip([  "A",   "B", "_AtA", "_rhs"],
-                               [(k,d), (k,r),  (d,d),  (d,r)]):
+        for attr, shape in [("A", (k,d)), ("B", (k,r)),
+                            ("_AtA", (d,d)), ("_rhs", (d,r))]:
             assert hasattr(solver, attr)
             obj = getattr(solver, attr)
             assert isinstance(obj, np.ndarray)
@@ -594,25 +592,24 @@ class TestSolverTikhonov:
         assert np.allclose(X1, X2)
 
         # Test with regularization, b.ndim = 1.
-        I = np.eye(d)
-        Apad = np.vstack((A, I))
+        Id = np.eye(d)
+        Apad = np.vstack((A, Id))
         bpad = np.concatenate((b, np.zeros(d)))
         x1 = la.lstsq(Apad, bpad)[0]
-        x2 = solver1D.predict(I)
+        x2 = solver1D.predict(Id)
         assert np.allclose(x1, x2)
 
         # Test with regularization, b.ndim = 2.
         Bpad = np.concatenate((B, np.zeros((d, r))))
         X1 = la.lstsq(Apad, Bpad)[0]
-        X2 = solver2D.predict(I)
+        X2 = solver2D.predict(Id)
         assert np.allclose(X1, X2)
 
         # Test with underdetermined system and regularization.
-        I = np.eye(d)
-        Apad = np.vstack((A, I))
+        Apad = np.vstack((A, Id))
         bpad = np.concatenate((b, np.zeros(d)))
         x1 = la.lstsq(Apad, bpad)[0]
-        x2 = solver1D.predict(I)
+        x2 = solver1D.predict(Id)
 
         assert np.allclose(x1, x2)
         x2 = solver1D.predict(np.ones(d))
@@ -633,10 +630,10 @@ class TestSolverTikhonov:
         assert np.allclose(X1, X2)
 
         # Some regularization.
-        Apad = np.vstack((A, I))
+        Apad = np.vstack((A, Id))
         Bpad = np.concatenate((B, np.zeros((d, r))))
         X1 = la.lstsq(Apad, Bpad)[0]
-        X2 = solver2D.predict(I)
+        X2 = solver2D.predict(Id)
         assert np.allclose(X1, X2)
 
     # Post-processing ---------------------------------------------------------
@@ -655,18 +652,18 @@ class TestSolverTikhonov:
         Z = np.zeros(d)
         solver.fit(A, B)
         assert np.isclose(solver.regcond(Z), d)
-        l = np.random.uniform(1, 10, d)
-        l.sort()
-        assert np.isclose(solver.regcond(l),
-                          np.sqrt((d**2 + l[-1]**2)/(1 + l[0]**2)))
+        λ = np.random.uniform(1, 10, d)
+        λ.sort()
+        assert np.isclose(solver.regcond(λ),
+                          np.sqrt((d**2 + λ[-1]**2)/(1 + λ[0]**2)))
 
         # Rectangular, dense tests.
         A = np.random.standard_normal((k,d))
         B = np.random.standard_normal((k,r))
         solver.fit(A, B)
-        for l in np.random.uniform(1, 10, ntests):
-            cond = np.linalg.cond(np.vstack((A, l*np.eye(d))))
-            assert np.isclose(solver.regcond(np.array([l]*d)), cond)
+        for λ in np.random.uniform(1, 10, ntests):
+            cond = np.linalg.cond(np.vstack((A, λ*np.eye(d))))
+            assert np.isclose(solver.regcond(np.array([λ]*d)), cond)
 
             P = np.random.standard_normal((d,d))
             cond = np.linalg.cond(np.vstack((A, P)))
@@ -807,10 +804,10 @@ class TestSolverTikhonovDecoupled:
         z = np.zeros(d)
         solver.fit(A, B)
         assert np.allclose(solver.regcond([z]*r), [d]*r)
-        l = np.random.uniform(1, 10, r)
-        Ps = [ll*np.ones(d) for ll in l]
+        λ = np.random.uniform(1, 10, r)
+        Ps = [λλ*np.ones(d) for λλ in λ]
         assert np.allclose(solver.regcond(Ps),
-                           np.sqrt((d**2 + l**2)/(1 + l**2)))
+                           np.sqrt((d**2 + λ**2)/(1 + λ**2)))
 
         # Rectangular, dense tests.
         A = np.random.standard_normal((k,d))

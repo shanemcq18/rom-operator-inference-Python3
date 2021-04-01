@@ -34,28 +34,26 @@ def test_select_model_class():
     assert ex.value.args[0] == "model type invalid or not implemented"
 
     # Valid cases.
-    assert opinf.select_model_class("discrete", "inferred") is  \
-                                        opinf.InferredDiscreteROM
-    assert opinf.select_model_class("continuous", "inferred") is \
-                                        opinf.InferredContinuousROM
-    assert opinf.select_model_class("discrete", "intrusive") is \
-                                        opinf.IntrusiveDiscreteROM
-    assert opinf.select_model_class("continuous", "intrusive") is \
-                                        opinf.IntrusiveContinuousROM
-    assert opinf.select_model_class("discrete", "intrusive", "affine") is \
-                                        opinf.AffineIntrusiveDiscreteROM
-    assert opinf.select_model_class("continuous", "intrusive", "affine") is \
-                                        opinf.AffineIntrusiveContinuousROM
-    assert opinf.select_model_class("discrete", "inferred", "affine") is \
-                                        opinf.AffineInferredDiscreteROM
-    assert opinf.select_model_class("continuous", "inferred", "affine") is \
-                                        opinf.AffineInferredContinuousROM
-    assert opinf.select_model_class("discrete", "inferred",
-                                    "interpolated") is \
-                                        opinf.InterpolatedInferredDiscreteROM
-    assert opinf.select_model_class("continuous", "inferred",
-                                    "interpolated") is \
-                                        opinf.InterpolatedInferredContinuousROM
+    assert opinf.select_model_class("discrete", "inferred") \
+        is opinf.InferredDiscreteROM
+    assert opinf.select_model_class("continuous", "inferred") \
+        is opinf.InferredContinuousROM
+    assert opinf.select_model_class("discrete", "intrusive") \
+        is opinf.IntrusiveDiscreteROM
+    assert opinf.select_model_class("continuous", "intrusive") \
+        is opinf.IntrusiveContinuousROM
+    assert opinf.select_model_class("discrete", "intrusive", "affine") \
+        is opinf.AffineIntrusiveDiscreteROM
+    assert opinf.select_model_class("continuous", "intrusive", "affine") \
+        is opinf.AffineIntrusiveContinuousROM
+    assert opinf.select_model_class("discrete", "inferred", "affine") \
+        is opinf.AffineInferredDiscreteROM
+    assert opinf.select_model_class("continuous", "inferred", "affine") \
+        is opinf.AffineInferredContinuousROM
+    assert opinf.select_model_class("discrete", "inferred", "interpolated") \
+        is opinf.InterpolatedInferredDiscreteROM
+    assert opinf.select_model_class("continuous", "inferred", "interpolated") \
+        is opinf.InterpolatedInferredContinuousROM
 
 
 def test_load_model():

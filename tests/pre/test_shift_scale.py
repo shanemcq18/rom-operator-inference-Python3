@@ -6,8 +6,6 @@ import numpy as np
 
 import rom_operator_inference as opinf
 
-from . import set_up_basis_data
-
 
 # Data preprocessing: shifting and MinMax scaling / unscaling =================
 def test_shift(set_up_basis_data):
@@ -44,7 +42,6 @@ def test_shift(set_up_basis_data):
 def test_scale(set_up_basis_data):
     """Test pre._shift_scale.scale()."""
     X = set_up_basis_data
-    Y = np.random.random(X.shape) / 3
 
     # Try with bad scales.
     with pytest.raises(ValueError) as exc:

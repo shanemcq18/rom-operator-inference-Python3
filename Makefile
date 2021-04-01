@@ -19,7 +19,7 @@ clean:
 
 lint:
 	$(PYTHON) -m flake8 src
-	# $(PYTHON) -m flake8 tests
+	$(PYTHON) -m flake8 tests
 
 
 install: clean

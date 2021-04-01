@@ -155,8 +155,8 @@ class TestInferredMixin:
             if 'B' in form:
                 model.m = m
             d = opinf.lstsq.lstsq_size(form, r, model.m)
-            O = np.random.random((r,d))
-            model._extract_operators(O)
+            Ohat = np.random.random((r,d))
+            model._extract_operators(Ohat)
             for prefix in MODEL_KEYS:
                 attr = prefix+'_'
                 assert hasattr(model, attr)

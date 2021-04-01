@@ -11,7 +11,7 @@ import rom_operator_inference as opinf
 MODEL_KEYS = opinf._core._base._BaseROM._MODEL_KEYS
 
 MODEL_FORMS = [''.join(s) for k in range(1, len(MODEL_KEYS)+1)
-                           for s in itertools.combinations(MODEL_KEYS, k)]
+               for s in itertools.combinations(MODEL_KEYS, k)]
 
 
 # Helper functions for testing ================================================

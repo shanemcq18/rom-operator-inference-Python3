@@ -57,7 +57,8 @@ class TestAffineOperator:
             "coefficient functions of affine operator must be callable"
 
         # Try with vector-valued functions.
-        f1 = lambda t: np.array([t, t**2])
+        def f1(t):
+            return np.array([t, t**2])
         with pytest.raises(ValueError) as ex:
             opinf.AffineOperator.validate_coeffs([f1, f1], 10)
         assert ex.value.args[0] == \
@@ -74,8 +75,8 @@ class TestAffineOperator:
         affop = opinf.AffineOperator(fs, As)
         Ap = affop(10)
         assert Ap.shape == (5,5)
-        assert np.allclose(Ap, np.sin(10)*As[0] + \
-                               np.cos(10)*As[1] + np.exp(10)*As[2])
+        Ap_true = fs[0](10)*As[0] + fs[1](10)*As[1] + fs[2](10)*As[2]
+        assert np.allclose(Ap, Ap_true)
 
     def test_eq(self):
         """Test _core._affine._base.AffineOperator.__eq__()."""
@@ -127,7 +128,8 @@ class TestAffineMixin:
         Vr = la.svd(X)[0][:,:r]
 
         # Get test operators.
-        ident = lambda a: a
+        def ident(a):
+            return a
         c, A, H, G, B = _get_operators(r, m)
         rom.Vr = Vr
         rom.c_ = opinf.AffineOperator([ident, ident], [c,c])

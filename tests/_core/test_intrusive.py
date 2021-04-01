@@ -3,11 +3,10 @@
 
 import pytest
 import numpy as np
-import scipy.linalg as la
 
 import rom_operator_inference as opinf
 
-from . import MODEL_FORMS, MODEL_KEYS, _get_data, _get_operators
+from . import MODEL_FORMS, MODEL_KEYS, _get_operators
 
 
 # Mixins (private) ============================================================
@@ -62,7 +61,7 @@ class TestIntrusiveMixin:
 
     def test_operator_properties(self, n=10, m=4, r=2):
         """Test the properties _core._base._BaseROM.(c_|A_|H_|G_|B_)."""
-        c,  A,  H,  G,  B  = fom_operators = _get_operators(n, m, True)
+        c, A, H, G, B = fom_operators = _get_operators(n, m, True)
         c_, A_, H_, G_, B_ = rom_operators = _get_operators(r, m)
 
         rom = self.Dummy(self.Dummy._MODEL_KEYS)
@@ -159,7 +158,7 @@ class TestIntrusiveMixin:
 
         with pytest.raises(KeyError) as ex:
             rom._check_operators_keys({"c":v, "A":v, "H":v, "B":v,
-                                         'CC':v, 'LL':v})
+                                       'CC':v, 'LL':v})
         assert ex.value.args[0] == "invalid operator keys 'CC', 'LL'"
 
         # Correct usage.
@@ -183,16 +182,16 @@ class TestIntrusiveMixin:
         # Get test data.
         Vr = np.random.random((n,r))
         shapes = {
-                    "c":   (n,),
-                    "A":   (n,n),
-                    "H":   (n,n**2),
-                    "G":   (n,n**3),
-                    "B":   (n,m),
-                    "c_":  (r,),
-                    "A_":  (r,r),
-                    "H_":  (r,r*(r+1)//2),
-                    "G_":  (r,r*(r+1)*(r+2)//6),
-                    "B_":  (r,m),
+                    "c": (n,),
+                    "A": (n,n),
+                    "H": (n,n**2),
+                    "G": (n,n**3),
+                    "B": (n,m),
+                    "c_": (r,),
+                    "A_": (r,r),
+                    "H_": (r,r*(r+1)//2),
+                    "G_": (r,r*(r+1)*(r+2)//6),
+                    "B_": (r,m),
                  }
 
         # Initialize the test ROM.
@@ -342,7 +341,8 @@ class TestIntrusiveContinuousROM:
         rom.m = m
         rom.H, rom.G, rom.B = H, G, B
         uu = np.random.random(m)
-        u = lambda t: uu + t
+        def u(t):
+            return uu + t
         x = np.random.random(n)
         x2 = np.kron(x, x)
         y = H @ x2 + G @ np.kron(x, x2) + B @ uu

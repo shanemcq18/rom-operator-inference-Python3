@@ -9,8 +9,7 @@ from scipy import linalg as la
 
 import rom_operator_inference as opinf
 
-from . import (MODEL_KEYS, MODEL_FORMS,
-               _get_data, _get_operators, _trainedmodel)
+from . import MODEL_FORMS, _get_data, _get_operators, _trainedmodel
 
 
 class TestBaseROM:
@@ -41,7 +40,6 @@ class TestBaseROM:
     def test_modelform_properties(self, n=10, r=3, m=5):
         """Test the properties related to _core._base_._BaseROM.modelform."""
         c_, A_, H_, G_, B_ = _get_operators(r, m)
-        Vr = np.random.random((n,r))
 
         # Try with invalid modelform.
         with pytest.raises(ValueError) as ex:
@@ -459,7 +457,8 @@ class TestContinuousROM:
         rom.r, rom.m = r, m
         rom.H_, rom.G_, rom.B_ = H_, G_, B_
         uu = np.random.random(m)
-        u = lambda t: uu + t
+        def u(t):
+            return uu + t
         y_ = H_ @ kron2c(x_) + G_ @ kron3c(x_) + B_ @ uu
         assert np.allclose(rom.f_(0, x_, u), y_)
         y_ = H_ @ kron2c(x_) + G_ @ kron3c(x_) + B_ @ (uu+1)
@@ -475,7 +474,8 @@ class TestContinuousROM:
         nt = 5
         x0 = X[:,0]
         t = np.linspace(0, .01*nt, nt)
-        u = lambda t: np.ones(m)
+        def u(t):
+            return np.ones(m)
         Upred = np.ones((m, nt))
 
         # Try to predict with invalid initial condition.
@@ -653,7 +653,7 @@ class TestNonparametricMixin:
                 assert "meta" in data
                 assert len(data["meta"]) == 0
                 assert data["meta"].attrs["modelclass"] == \
-                                                    mdl.__class__.__name__
+                    mdl.__class__.__name__
                 assert data["meta"].attrs["modelform"] == mdl.modelform
 
                 # Check basis
@@ -744,11 +744,16 @@ class TestParametricMixin:
         # Define dummy operators to use.
         c1, A1, H1, G1, B1 = _get_operators(r, m)
         c2, A2, H2, G2, B2 = _get_operators(r, m)
-        def c(*args, **kwargs): return c1
-        def A(*args, **kwargs): return A1
-        def H(*args, **kwargs): return H1
-        def G(*args, **kwargs): return G1
-        def B(*args, **kwargs): return B1
+        def c(*args, **kwargs):
+            return c1
+        def A(*args, **kwargs):
+            return A1
+        def H(*args, **kwargs):
+            return H1
+        def G(*args, **kwargs):
+            return G1
+        def B(*args, **kwargs):
+            return B1
         c.shape = (r,)
         A.shape = (r,r)
         H.shape = (r,r*(r + 1)//2)
@@ -798,11 +803,16 @@ class TestParametricMixin:
         """Test _core._base._ParametricMixin.__str__()."""
 
         # Define dummy operators to use.
-        def c(*args, **kwargs): pass
-        def A(*args, **kwargs): pass
-        def H(*args, **kwargs): pass
-        def G(*args, **kwargs): pass
-        def B(*args, **kwargs): pass
+        def c(*args, **kwargs):
+            pass
+        def A(*args, **kwargs):
+            pass
+        def H(*args, **kwargs):
+            pass
+        def G(*args, **kwargs):
+            pass
+        def B(*args, **kwargs):
+            pass
         c.shape = (r,)
         A.shape = (r,r)
         H.shape = (r,r*(r + 1)//2)

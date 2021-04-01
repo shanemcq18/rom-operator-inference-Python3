@@ -52,7 +52,7 @@ def _test_kron3c_single_vector(n):
     assert x3.shape[0] == n*(n+1)*(n+2)//6
     for i in range(n):
         assert np.allclose(x3[i*(i+1)*(i+2)//6:(i+1)*(i+2)*(i+3)//6],
-                            x[i]*opinf.utils.kron2c(x[:i+1]))
+                           x[i]*opinf.utils.kron2c(x[:i+1]))
 
 
 def _test_kron3c_single_matrix(n):
@@ -64,7 +64,7 @@ def _test_kron3c_single_matrix(n):
     assert X3.shape[1] == n
     for i in range(n):
         assert np.allclose(X3[i*(i+1)*(i+2)//6:(i+1)*(i+2)*(i+3)//6],
-                            X[i]*opinf.utils.kron2c(X[:i+1]))
+                           X[i]*opinf.utils.kron2c(X[:i+1]))
 
 
 def test_kron3c(n_tests=50):
@@ -138,8 +138,8 @@ def _test_compress_H_single(r):
     H2 = opinf.utils.expand_H(Hc)
     Ht = H.reshape((r,r,r))
     Htnew = np.empty_like(Ht)
-    for l in range(r):
-        Htnew[l] = (Ht[l] + Ht[l].T) / 2
+    for i in range(r):
+        Htnew[i] = (Ht[i] + Ht[i].T) / 2
     assert np.allclose(H2, Htnew.reshape(H.shape))
 
 
