@@ -3,9 +3,9 @@
 
 import pytest
 import numpy as np
-from scipy import linalg as la
+import scipy.linalg as la
 
-import rom_operator_inference as roi
+import rom_operator_inference as opinf
 
 from .test_base import TestAffineMixin
 from .. import _get_data, _get_operators, MODEL_FORMS, MODEL_KEYS
@@ -14,8 +14,8 @@ from .. import _get_data, _get_operators, MODEL_FORMS, MODEL_KEYS
 # Affine intrusive mixin (private) ============================================
 class TestAffineIntrusiveMixin:
     """Test _core._affine._intrusive._AffineIntrusiveMixin."""
-    class Dummy(roi._core._affine._intrusive._AffineIntrusiveMixin,
-                roi._core._base._BaseROM):
+    class Dummy(opinf._core._affine._intrusive._AffineIntrusiveMixin,
+                opinf._core._base._BaseROM):
         def __init__(self, modelform):
             self.modelform = modelform
 
@@ -200,13 +200,13 @@ class TestAffineIntrusiveMixin:
                 rom_op = getattr(model, attr)
                 if prefix in form:
                     assert isinstance(fom_op,
-                                      roi._core._affine.AffineOperator)
+                                      opinf._core._affine.AffineOperator)
                     assert fom_op.shape == shapes[prefix]
                     assert len(fom_op.matrices) == len(operators[prefix])
                     for fom_op, op in zip(fom_op.matrices, operators[prefix]):
                         assert np.all(fom_op == op)
                     assert isinstance(rom_op,
-                                      roi._core._affine.AffineOperator)
+                                      opinf._core._affine.AffineOperator)
                     assert rom_op.shape == shapes[attr]
                     assert len(rom_op.matrices) == len(operators[prefix])
                 else:
@@ -279,19 +279,19 @@ class TestAffineIntrusiveDiscreteROM:
     """Test _core._affine._intrusive.AffineIntrusiveDiscreteROM."""
     def test_fit(self):
         """Test _core._affine._intrusive.AffineIntrusiveDiscreteROM.fit()."""
-        TestAffineIntrusiveMixin()._test_fit(roi.AffineIntrusiveDiscreteROM)
+        TestAffineIntrusiveMixin()._test_fit(opinf.AffineIntrusiveDiscreteROM)
 
     def test_predict(self):
         """Test _core._affine._intrusive.AffineIntrusiveDiscreteROM.predict()."""
-        TestAffineMixin()._test_predict(roi.AffineIntrusiveDiscreteROM)
+        TestAffineMixin()._test_predict(opinf.AffineIntrusiveDiscreteROM)
 
 
 class TestAffineIntrusiveContinuousROM:
     """Test _core._affine._intrusive.AffineIntrusiveContinuousROM."""
     def test_fit(self):
         """Test _core._affine._intrusive.AffineIntrusiveContinuousROM.fit()."""
-        TestAffineIntrusiveMixin()._test_fit(roi.AffineIntrusiveContinuousROM)
+        TestAffineIntrusiveMixin()._test_fit(opinf.AffineIntrusiveContinuousROM)
 
     def test_predict(self):
         """Test _core._affine._intrusive.AffineIntrusiveContinuousROM.predict()."""
-        TestAffineMixin()._test_predict(roi.AffineIntrusiveContinuousROM)
+        TestAffineMixin()._test_predict(opinf.AffineIntrusiveContinuousROM)
