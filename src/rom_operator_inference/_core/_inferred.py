@@ -220,7 +220,7 @@ class _InferredMixin:
             e.g., d = r + m when `modelform`="AB".
         """
         Otrp = self.solver_.predict(P)
-        self._extract_operators(Otrp.T)
+        self._extract_operators(np.atleast_2d(Otrp.T))
 
     def fit(self, Vr, X, rhs, U, P):
         """Solve for the reduced model operators via ordinary least squares.
