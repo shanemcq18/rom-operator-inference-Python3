@@ -108,7 +108,7 @@ class TestSnapshotTransformer:
 
         X = np.random.randint(0, 100, (n,k)).astype(float)
         st = opinf.pre.SnapshotTransformer(scaling=None,
-                                           center=False, verbose=0)
+                                           center=False, verbose=False)
 
         # Test null transformation.
         Y = st.fit_transform(X, inplace=True)
@@ -199,7 +199,7 @@ class TestSnapshotTransformer:
         """Test pre.SnapshotTransformer.transform()."""
         X = np.random.randint(0, 100, (n,k)).astype(float)
         st = opinf.pre.SnapshotTransformer(scaling=None,
-                                           center=False, verbose=0)
+                                           center=False, verbose=False)
 
         for scaling, center in itertools.product({None, *st._VALID_SCALINGS},
                                                  (True, False)):
@@ -210,3 +210,48 @@ class TestSnapshotTransformer:
             Z = st.transform(Y, inplace=False)
             st.inverse_transform(Z, inplace=True)
             assert np.allclose(Z, Y)
+
+
+# class TestMultivariableSnapshotTransformer:
+#     """Test pre.MultivariableSnapshotTransformer."""
+#     def test_init(self):
+#         """Test pre.MultivariableSnapshotTransformer.__init__()."""
+#         st = opinf.pre.MultivariableSnapshotTransformer()
+#         for attr in ["num_variables", "scale", "shift", "inplace",
+#                      "variable_names", "weights", "verbose"]:
+#             assert hasattr(st, attr)
+#
+#     def test_properties(self):
+#         """Test pre.SnapshotTransformer properties (attribute protection)."""
+#         st = opinf.pre.SnapshotTransformer()
+#
+#         # Test num_variables.
+#         with pytest.raises(TypeError) as exc:
+#             st.num_variables = 1.5
+#         assert exc.value.args[0] == "num_variables must be an integer"
+#
+#         st.num_variables = 1
+#         st.num_variables = 2
+#         st.num_variables = 3.0
+#
+#         # Test variable_names.
+#         st.num_variables = 1
+#         with pytest.raises(ValueError) as exc:
+#             st.variable_names = [0, 1]
+#         assert exc.value.args[0] == \
+#             "2 = len(variable_names) != num_variables = 1"
+#         st.variable_names = "fred"
+#
+#         # Test scale.
+#         st.num_variables = 1
+#         with pytest.raises(ValueError) as exc:
+#             st.scaling = "minimaxi"
+#         assert exc.value.args[0] == "invalid scaling 'minimaxi'"
+#
+#         with pytest.raises(ValueError) as exc:
+#             st.scaling = [2, 1]
+#         assert exc.value.args[0] == "invalid scaling '[2, 1]'"
+#
+#         for s in list(st._VALID_SCALINGS) + [True, [-3, 7]]:
+#             st.scaling = s
+#             assert st.scaling == [s]
