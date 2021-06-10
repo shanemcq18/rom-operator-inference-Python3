@@ -80,6 +80,13 @@ class TestSnapshotTransformer:
         """Test pre.SnapshotTransformer properties (attribute protection)."""
         st = opinf.pre.SnapshotTransformer()
 
+        # Test center.
+        with pytest.raises(TypeError) as exc:
+            st.center = "nope"
+        assert exc.value.args[0] == "'center' must be True or False"
+        st.center = True
+        st.center = False
+
         # Test scale.
         with pytest.raises(ValueError) as exc:
             st.scaling = "minimaxii"
@@ -106,62 +113,66 @@ class TestSnapshotTransformer:
             assert B.shape == A.shape
             return B
 
-        X = np.random.randint(0, 100, (n,k)).astype(float)
-        st = opinf.pre.SnapshotTransformer(scaling=None,
-                                           center=False, verbose=False)
+        st = opinf.pre.SnapshotTransformer(verbose=False)
 
         # Test null transformation.
+        st.center = False
+        st.scaling = None
+        X = np.random.randint(0, 100, (n,k)).astype(float)
         Y = st.fit_transform(X, inplace=True)
         assert Y is X
-        X = np.random.randint(0, 100, (n,k)).astype(float)
         Y = fit_transform_copy(st, X)
         assert np.all(Y == X)
 
-        # Test standard scaling.
-        st.scaling = "standard"
-        Y = fit_transform_copy(st, X)
-        for attr in "scale_", "shift_":
-            assert hasattr(st, attr)
-            assert isinstance(getattr(st, attr), float)
-        assert np.isclose(np.mean(Y), 0)
-        assert np.isclose(np.std(Y), 1)
-
-        # Test min-max scaling.
-        st.scaling = "minmax"
-        Y = fit_transform_copy(st, X)
-        assert np.isclose(np.min(Y), 0)
-        assert np.isclose(np.max(Y), 1)
-
-        # Test min-max scaling.
-        st.scaling = "symminmax"
-        Y = fit_transform_copy(st, X)
-        assert np.isclose(np.min(Y), -1)
-        assert np.isclose(np.max(Y), 1)
-
-        # Test maximum absolute scaling.
-        st.scaling = "maxabs"
-        Y = fit_transform_copy(st, X)
-        assert np.isclose(np.max(np.abs(Y)), 1)
-
-        # Test minimum-maximum absolute scaling.
-        st.scaling = "minmaxabs"
-        Y = fit_transform_copy(st, X)
-        assert np.isclose(np.mean(Y), 0)
-        assert np.isclose(np.max(np.abs(Y)), 1)
-
-        # Test mean shift.
+        # Test centering.
         st.center = True
+        st.scaling = None
         Y = fit_transform_copy(st, X)
         assert hasattr(st, "mean_")
         assert isinstance(st.mean_, np.ndarray)
         assert st.mean_.shape == (X.shape[0],)
         assert np.allclose(np.mean(Y, axis=1), 0)
 
+        # Test scaling (without and with centering).
+        for centering in (False, True):
+            st.center = centering
+
+            # Test standard scaling.
+            st.scaling = "standard"
+            Y = fit_transform_copy(st, X)
+            for attr in "scale_", "shift_":
+                assert hasattr(st, attr)
+                assert isinstance(getattr(st, attr), float)
+            assert np.isclose(np.mean(Y), 0)
+            assert np.isclose(np.std(Y), 1)
+
+            # Test min-max scaling.
+            st.scaling = "minmax"
+            Y = fit_transform_copy(st, X)
+            assert np.isclose(np.min(Y), 0)
+            assert np.isclose(np.max(Y), 1)
+
+            # Test symmetric min-max scaling.
+            st.scaling = "minmaxsym"
+            Y = fit_transform_copy(st, X)
+            assert np.isclose(np.min(Y), -1)
+            assert np.isclose(np.max(Y), 1)
+
+            # Test maximum absolute scaling.
+            st.scaling = "maxabs"
+            Y = fit_transform_copy(st, X)
+            assert np.isclose(np.max(np.abs(Y)), 1)
+
+            # Test minimum-maximum absolute scaling.
+            st.scaling = "maxabssym"
+            Y = fit_transform_copy(st, X)
+            assert np.isclose(np.mean(Y), 0)
+            assert np.isclose(np.max(np.abs(Y)), 1)
+
     def test_transform(self, n=200, k=50):
         """Test pre.SnapshotTransformer.transform()."""
         X = np.random.randint(0, 100, (n,k)).astype(float)
-        st = opinf.pre.SnapshotTransformer(scaling=None,
-                                           center=False, verbose=0)
+        st = opinf.pre.SnapshotTransformer(verbose=False)
 
         # Test null transformation.
         X = np.random.randint(0, 100, (n,k)).astype(float)
@@ -169,13 +180,21 @@ class TestSnapshotTransformer:
         Y = np.random.randint(0, 100, (n,k)).astype(float)
         Z = st.transform(Y, inplace=True)
         assert Z is Y
-        Y = np.random.randint(0, 100, (n,k)).astype(float)
         Z = st.transform(Y, inplace=False)
         assert Z is not Y
         assert Z.shape == Y.shape
         assert np.all(Z == Y)
 
+        # Test mean shift.
+        st.center = True
+        st.scaling = None
+        st.fit_transform(X)
+        µ = st.mean_
+        Z = st.transform(Y, inplace=False)
+        assert np.allclose(Z, Y - µ.reshape(-1,1))
+
         # Test each scaling.
+        st.center = False
         for scl in st._VALID_SCALINGS:
             X = np.random.randint(0, 100, (n,k)).astype(float)
             Y = np.random.randint(0, 100, (n,k)).astype(float)
@@ -185,21 +204,10 @@ class TestSnapshotTransformer:
             Z = st.transform(Y)
             assert np.allclose(Z, a*Y + b)
 
-        # Test mean shift.
-        st.center = True
-        st.scaling = None
-        X = np.random.randint(0, 100, (n,k)).astype(float)
-        Y = np.random.randint(0, 100, (n,k)).astype(float)
-        st.fit_transform(X)
-        µ = st.mean_
-        Z = st.transform(Y)
-        assert np.allclose(Z, Y - µ.reshape(-1,1))
-
     def test_inverse_transform(self, n=200, k=50):
-        """Test pre.SnapshotTransformer.transform()."""
+        """Test pre.SnapshotTransformer.inverse_transform()."""
         X = np.random.randint(0, 100, (n,k)).astype(float)
-        st = opinf.pre.SnapshotTransformer(scaling=None,
-                                           center=False, verbose=False)
+        st = opinf.pre.SnapshotTransformer(verbose=False)
 
         for scaling, center in itertools.product({None, *st._VALID_SCALINGS},
                                                  (True, False)):

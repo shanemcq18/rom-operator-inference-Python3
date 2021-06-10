@@ -116,58 +116,58 @@ def scale(X, scale_to, scale_from=None):
 
 
 class SnapshotTransformer:
-    """Process snapshots by scaling and/or centering."""
+    """Process snapshots by centering and/or scaling (in that order).
+
+    Attributes (transformation hyperparameters)
+    -------------------------------------------
+    center : bool
+        If True, shift the snapshots by the mean of the training snapshots.
+    scaling : str or None
+        If given, scale (non-dimensionalize) the centered snapshot entries.
+        * 'standard': standardize to zero mean and unit standard deviation.
+        * 'minmax': minmax scaling to [0,1].
+        * 'minmaxsym': minmax scaling to [-1,1].
+        * 'maxabs': maximum absolute scaling to [-1,1] (no shift).
+        * 'maxabssym': maximum absolute scaling to [-1,1] (mean shift).
+    verbose : bool
+        If True, print information about the learned transformation.
+
+    Notes
+    -----
+    Snapshot centering (center=True):
+        X' = X - mean(X, axis=1);
+        Guarantees mean(X', axis=1) = [0, ..., 0].
+    Standard scaling (scaling='standard'):
+        X' = (X - mean(X)) / std(X);
+        Guarantees mean(X') = 0, std(X') = 1.
+    Min-max scaling (scaling='minmax'):
+        X' = (X - min(X))/(max(X) - min(X));
+        Guarantees min(X') = 0, max(X') = 1.
+    Symmetric min-max scaling  (scaling='minmaxsym'):
+        X' = (X - min(X))*2/(max(X) - min(X)) - 1
+        Guarantees min(X') = -1, max(X') = 1.
+    Maximum absolute scaling:
+        X' = X / max(abs(X));
+        Guarantees mean(X') = mean(X) / max(abs(X)), max(abs(X')) = 1.
+    Min-max absolute scaling:
+        X' = (X - mean(X)) / max(abs(X - mean(X)));
+        Guarantees mean(X') = 0, max(abs(X')) = 1.
+    """
     _VALID_SCALINGS = {
         "standard",
         "minmax",
-        "symminmax",
+        "minmaxsym",
         "maxabs",
-        "minmaxabs",
+        "maxabssym",
     }
 
     _table_header = "    |     min    |    mean    |     max    |    std\n"
     _table_header += "----|------------|------------|------------|------------"
 
-    def __init__(self, scaling=None, center=False, verbose=False):
-        """Set transformation hyperparameters.
-
-        Parameters
-        ----------
-        scaling : str or None
-            If given, scale (non-dimensionalize) the snapshot data entrywise.
-            * 'standard': standardize to zero mean and unit standard deviation.
-            * 'minmax': minmax scaling to [0,1].
-            * 'symminmax': minmax scaling to [-1,1].
-            * 'maxabs': absolute maximum scaling to [-1,1] (no shift).
-            * 'minmaxabs': absolute min-max scaling to [-1,1] (mean shift).
-        center : bool
-            If True, shift the (scaled) snapshots by the mean snapshot.
-        verbose : bool
-            If True, print information about the learned transformation.
-
-        Notes
-        -----
-        Standard scaling:
-            X' = (X - mean(X)) / std(X);
-            Guarantees mean(X') = 0, std(X') = 1.
-        Min-max scaling:
-            X' = (X - min(X))/(max(X) - min(X));
-            Guarantees min(X') = 0, max(X') = 1.
-        Symmetric min-max scaling:
-            X' = (X - min(X))*2/(max(X) - min(X)) - 1
-            Guarantees min(X') = -1, max(X') = 1.
-        Maximum absolute scaling:
-            X' = X / max(abs(X));
-            Guarantees mean(X') = mean(X) / max(abs(X)), max(abs(X')) = 1.
-        Min-max absolute scaling:
-            X' = (X - mean(X)) / max(abs(X - mean(X)));
-            Guarantees mean(X') = 0, max(abs(X')) = 1.
-        Centering:
-            X'' = X' - mean(X', axis=1);
-            Guarantees mean(X'', axis=1) = [0, ..., 0].
-        """
-        self.scaling = scaling
+    def __init__(self, center=False, scaling=None, verbose=False):
+        """Set transformation hyperparameters."""
         self.center = center
+        self.scaling = scaling
         self.verbose = verbose
 
     def _clear(self):
@@ -178,20 +178,33 @@ class SnapshotTransformer:
 
     # Properties --------------------------------------------------------------
     @property
+    def center(self):
+        """Snapshot mean-centering directive (bool)."""
+        return self.__center
+
+    @center.setter
+    def center(self, ctr):
+        """Set the centering directive, resetting the transformation."""
+        if ctr not in (True, False):
+            raise TypeError("'center' must be True or False")
+        self._clear()
+        self.__center = ctr
+
+    @property
     def scaling(self):
         """Entrywise scaling (non-dimensionalization) directive.
         * None: no scaling.
         * 'standard': standardize to zero mean and unit standard deviation.
         * 'minmax': minmax scaling to [0,1].
-        * 'symminmax': minmax scaling to [-1,1].
-        * 'maxabs': absolute maximum scaling to [-1,1] (no shift).
-        * 'minmaxabs': absolute min-max scaling to [-1,1] (mean shift).
+        * 'minmaxsym': minmax scaling to [-1,1].
+        * 'maxabs': maximum absolute scaling to [-1,1] (no shift).
+        * 'maxabssym': maximum absolute scaling to [-1,1] (mean shift).
         """
         return self.__scaling
 
     @scaling.setter
     def scaling(self, scl):
-        """Set the scaling strategy, checking for validity."""
+        """Set the scaling strategy, resetting the transformation."""
         if scl is None:
             self._clear()
             self.__scaling = scl
@@ -209,12 +222,12 @@ class SnapshotTransformer:
     def __str__(self):
         """String representation: scaling type + centering bool."""
         out = ["Snapshot transformer"]
-        if self.scaling:
-            out.append(f"with '{self.scaling}' scaling")
-            if self.center:
-                out.append("and mean-snapshot centering")
-        elif self.centering:
+        if self.center:
             out.append("with mean-snapshot centering")
+            if self.scaling:
+                out.append(f"and '{self.scaling}' scaling")
+        elif self.scaling:
+            out.append(f"with '{self.scaling}' scaling")
         return ' '.join(out)
 
     @staticmethod
@@ -270,68 +283,69 @@ class SnapshotTransformer:
 
         # Record statistics of the training data.
         if self.verbose:
-            report = [""]
+            report = ["No transformation learned"]
             report.append(self._table_header)
             report.append(f"X   | {self._statistics_report(X)}")
 
-        # Scale (non-dimensionalize) each variable.
-        if self.scaling:
-            # Standard: X' = (X - µ)/σ
-            if self.scaling == "standard":
-                µ = np.mean(X)
-                σ = np.std(X)
-                self.scale_ = 1/σ
-                self.shift_ = -µ*self.scale_
-
-            # Min-max: X' = (X - min(X))/(max(X) - min(X))
-            elif self.scaling == "minmax":
-                Xmin = np.min(X)
-                Xmax = np.max(X)
-                self.scale_ = 1/(Xmax - Xmin)
-                self.shift_ = -Xmin*self.scale_
-
-            # Symmetric min-max: X' = (X - min(X))*2/(max(X) - min(X)) - 1
-            elif self.scaling == "symminmax":
-                Xmin = np.min(X)
-                Xmax = np.max(X)
-                self.scale_ = 2/(Xmax - Xmin)
-                self.shift_ = -Xmin*self.scale_ - 1
-
-            # MaxAbs: X' = X / max(abs(X))
-            elif self.scaling == "maxabs":
-                self.scale_ = 1/np.max(np.abs(X))
-                self.shift_ = 0
-
-            # MinMaxAbs: X' = (X - mean(X)) / max(abs(X - mean(X)))
-            elif self.scaling == "minmaxabs":
-                µ = np.mean(X)
-                Y -= µ
-                self.scale_ = 1/np.max(np.abs(Y))
-                self.shift_ = -µ*self.scale_
-                Y += µ
-
-            Y *= self.scale_
-            Y += self.shift_
-
-            if self.verbose:
-                report[0] = f"Learned {self.scaling} scaling X -> X'"
-                report.append(f"X'  | {self._statistics_report(Y)}")
-
-        # Center the scaled snapshots.
+        # Center the snapshots by the mean training snapshot.
         if self.center:
             self.mean_ = np.mean(Y, axis=1)
             Y -= self.mean_.reshape((-1,1))
 
             if self.verbose:
-                if self.scaling:
-                    report[0] += " and mean centering X' -> X''"
+                report[0] = "Learned mean centering X -> X'"
+                report.append(f"X'  | {self._statistics_report(Y)}")
+
+        # Scale (non-dimensionalize) the centered snapshot entries.
+        if self.scaling:
+            # Standard: X' = (X - µ)/σ
+            if self.scaling == "standard":
+                µ = np.mean(Y)
+                σ = np.std(Y)
+                self.scale_ = 1/σ
+                self.shift_ = -µ*self.scale_
+
+            # Min-max: X' = (X - min(X))/(max(X) - min(X))
+            elif self.scaling == "minmax":
+                Ymin = np.min(Y)
+                Ymax = np.max(Y)
+                self.scale_ = 1/(Ymax - Ymin)
+                self.shift_ = -Ymin*self.scale_
+
+            # Symmetric min-max: X' = (X - min(X))*2/(max(X) - min(X)) - 1
+            elif self.scaling == "minmaxsym":
+                Ymin = np.min(Y)
+                Ymax = np.max(Y)
+                self.scale_ = 2/(Ymax - Ymin)
+                self.shift_ = -Ymin*self.scale_ - 1
+
+            # MaxAbs: X' = X / max(abs(X))
+            elif self.scaling == "maxabs":
+                self.scale_ = 1/np.max(np.abs(Y))
+                self.shift_ = 0
+
+            # maxabssym: X' = (X - mean(X)) / max(abs(X - mean(X)))
+            elif self.scaling == "maxabssym":
+                µ = np.mean(Y)
+                Y -= µ
+                self.scale_ = 1/np.max(np.abs(Y))
+                self.shift_ = -µ*self.scale_
+                Y += µ
+
+            else:
+                raise RuntimeError(f"invalid scaling '{self.scaling}'")
+
+            Y *= self.scale_
+            Y += self.shift_
+
+            if self.verbose:
+                if self.center:
+                    report[0] += f" and {self.scaling} scaling X' -> X''"
                 else:
-                    report[0] = "Learned mean centering X -> X''"
+                    report[0] = f"Learned {self.scaling} scaling X -> X''"
                 report.append(f"X'' | {self._statistics_report(Y)}")
 
         if self.verbose:
-            if self.scaling is None and self.center is False:
-                report[0] = "No transformation learned"
             print('\n'.join(report))
 
         return Y
@@ -354,14 +368,14 @@ class SnapshotTransformer:
         """
         Y = X if inplace else X.copy()
 
-        # Scale (non-dimensionalize) each variable.
-        if self.scaling:
+        # Center the snapshots by the mean training snapshot.
+        if self.center is True:
+            Y -= self.mean_.reshape((-1,1))
+
+        # Scale (non-dimensionalize) the centered snapshot entries.
+        if self.scaling is not None:
             Y *= self.scale_
             Y += self.shift_
-
-        # Shift (center) the scaled snapshots.
-        if self.center:
-            Y -= self.mean_.reshape((-1,1))
 
         return Y
 
@@ -383,14 +397,14 @@ class SnapshotTransformer:
         """
         Y = X if inplace else X.copy()
 
-        # Shift (uncenter) the scaled snapshots.
-        if self.center:
-            Y += self.mean_.reshape((-1,1))
-
-        # Unscale (re-dimensionalize) the unshifted snapshots.
+        # Unscale (re-dimensionalize) the data.
         if self.scaling:
             Y -= self.shift_
             Y /= self.scale_
+
+        # Uncenter the unscaled snapshots.
+        if self.center:
+            Y += self.mean_.reshape((-1,1))
 
         return Y
 
