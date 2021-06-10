@@ -7,6 +7,8 @@ __all__ = [
             "SnapshotTransformer"
           ]
 
+import os
+import h5py
 import numpy as np
 
 
@@ -118,10 +120,10 @@ def scale(X, scale_to, scale_from=None):
 class SnapshotTransformer:
     """Process snapshots by centering and/or scaling (in that order).
 
-    Attributes (transformation hyperparameters)
-    -------------------------------------------
+    Parameters
+    ----------
     center : bool
-        If True, shift the snapshots by the mean of the training snapshots.
+        If True, shift the snapshots by the mean training snapshot.
     scaling : str or None
         If given, scale (non-dimensionalize) the centered snapshot entries.
         * 'standard': standardize to zero mean and unit standard deviation.
@@ -130,7 +132,18 @@ class SnapshotTransformer:
         * 'maxabs': maximum absolute scaling to [-1,1] (no shift).
         * 'maxabssym': maximum absolute scaling to [-1,1] (mean shift).
     verbose : bool
-        If True, print information about the learned transformation.
+        If True, print information upon learning a transformation.
+
+    Attributes
+    ----------
+    mean_ : (n,) ndarray
+        Mean training snapshot. Only recorded if center = True.
+    scale_ : float
+        Multiplicative factor of scaling (the m of x -> mx + b).
+        Only recorded if scaling != None.
+    shift_ : float
+        Additive factor of scaling (the b of x -> mx + b).
+        Only recorded if scaling != None.
 
     Notes
     -----
@@ -143,13 +156,13 @@ class SnapshotTransformer:
     Min-max scaling (scaling='minmax'):
         X' = (X - min(X))/(max(X) - min(X));
         Guarantees min(X') = 0, max(X') = 1.
-    Symmetric min-max scaling  (scaling='minmaxsym'):
+    Symmetric min-max scaling (scaling='minmaxsym'):
         X' = (X - min(X))*2/(max(X) - min(X)) - 1
         Guarantees min(X') = -1, max(X') = 1.
-    Maximum absolute scaling:
+    Maximum absolute scaling (scaling='maxabs'):
         X' = X / max(abs(X));
         Guarantees mean(X') = mean(X) / max(abs(X)), max(abs(X')) = 1.
-    Min-max absolute scaling:
+    Min-max absolute scaling (scaling='maxabssym'):
         X' = (X - mean(X)) / max(abs(X - mean(X)));
         Guarantees mean(X') = 0, max(abs(X')) = 1.
     """
@@ -172,7 +185,7 @@ class SnapshotTransformer:
 
     def _clear(self):
         """Delete all learned attributes."""
-        for attr in ("scale_", "shift_", "mean_"):
+        for attr in ("mean_", "scale_", "shift_"):
             if hasattr(self, attr):
                 delattr(self, attr)
 
@@ -218,6 +231,44 @@ class SnapshotTransformer:
         self._clear()
         self.__scaling = scl
 
+    @property
+    def verbose(self):
+        return self.__verbose
+
+    @verbose.setter
+    def verbose(self, vbs):
+        """If True, print information about upon learning a transformation."""
+        self.__verbose = bool(vbs)
+
+    def _is_trained(self):
+        """Return True if transform() and inverse_transform() are ready."""
+        if self.center and not hasattr(self, "mean_"):
+            return False
+        if self.scaling and any(not hasattr(self, attr)
+                                for attr in ("scale_", "shift_")):
+            return False
+        return True
+
+    def __eq__(self, other):
+        """Test two SnapshotTransformers for equality."""
+        if not isinstance(other, self.__class__):
+            return False
+        for attr in ("center", "scaling"):
+            if getattr(self, attr) != getattr(other, attr):
+                return False
+        if self.center and hasattr(self, "mean_"):
+            if not hasattr(other, "mean_"):
+                return False
+            if not np.all(self.mean_ == other.mean_):
+                return False
+        if self.scaling and hasattr(self, "scale_"):
+            for attr in ("scale_", "shift_"):
+                if not hasattr(other, attr):
+                    return False
+                if getattr(self, attr) != getattr(other, attr):
+                    return False
+        return True
+
     # Printing ----------------------------------------------------------------
     def __str__(self):
         """String representation: scaling type + centering bool."""
@@ -237,18 +288,38 @@ class SnapshotTransformer:
                            for f in (np.min, np.mean, np.max, np.std)])
 
     # Persistence -------------------------------------------------------------
-    def save(self, filename, overwrite=False):
+    def save(self, savefile, overwrite=False):
         """Save the current transformer to an HDF5 file.
 
         Parameters
         ----------
-        filename : str
+        savefile : str
             Path of the file to save the transformer in.
         """
-        raise NotImplementedError
+        # Ensure the file is saved in HDF5 format.
+        if not savefile.endswith(".h5"):
+            savefile += ".h5"
+
+        # Prevent overwriting and existing file on accident.
+        if os.path.isfile(savefile) and not overwrite:
+            raise FileExistsError(savefile)
+
+        with h5py.File(savefile, 'w') as hf:
+            # Store transformation hyperparameter metadata.
+            meta = hf.create_dataset("meta", shape=(0,))
+            meta.attrs["center"] = self.center
+            meta.attrs["scaling"] = self.scaling if self.scaling else False
+            meta.attrs["verbose"] = self.verbose
+
+            # Store learned transformation parameters.
+            if self.center and hasattr(self, "mean_"):
+                hf.create_dataset("transformation/mean_", data=self.mean_)
+            if self.scaling and hasattr(self, "scale_"):
+                hf.create_dataset("transformation/scale_", data=[self.scale_])
+                hf.create_dataset("transformation/shift_", data=[self.shift_])
 
     @classmethod
-    def load(cls, filename):
+    def load(cls, loadfile):
         """Load a SnapshotTransformer from an HDF5 file.
 
         Parameters
@@ -260,7 +331,23 @@ class SnapshotTransformer:
         -------
             SnapshotTransformer
         """
-        raise NotImplementedError
+        with h5py.File(loadfile, 'r') as hf:
+            # Load transformation hyperparameters.
+            if "meta" not in hf:
+                raise ValueError("invalid save format (meta/ not found)")
+            scl = hf["meta"].attrs["scaling"]
+            transformer = cls(center=hf["meta"].attrs["center"],
+                              scaling=scl if scl else None,
+                              verbose=hf["meta"].attrs["verbose"])
+
+            # Load learned transformation parameters.
+            if transformer.center and "transformation/mean_" in hf:
+                transformer.mean_ = hf["transformation/mean_"][:]
+            if transformer.scaling and "transformation/scale_" in hf:
+                transformer.scale_ = hf["transformation/scale_"][0]
+                transformer.shift_ = hf["transformation/shift_"][0]
+
+            return transformer
 
     # Main routines -----------------------------------------------------------
     def fit_transform(self, X, inplace=False):
@@ -332,7 +419,7 @@ class SnapshotTransformer:
                 self.shift_ = -µ*self.scale_
                 Y += µ
 
-            else:
+            else:                               # pragma nocover
                 raise RuntimeError(f"invalid scaling '{self.scaling}'")
 
             Y *= self.scale_
@@ -346,7 +433,7 @@ class SnapshotTransformer:
                 report.append(f"X'' | {self._statistics_report(Y)}")
 
         if self.verbose:
-            print('\n'.join(report))
+            print('\n'.join(report) + '\n')
 
         return Y
 
@@ -366,6 +453,10 @@ class SnapshotTransformer:
         X'': (n,k) ndarray
             Matrix of k transformed n-dimensional snapshots.
         """
+        if not self._is_trained():
+            raise AttributeError("transformer not trained "
+                                 "(call fit_transform())")
+
         Y = X if inplace else X.copy()
 
         # Center the snapshots by the mean training snapshot.
@@ -395,6 +486,10 @@ class SnapshotTransformer:
         X'': (n,k) ndarray
             Matrix of k untransformed n-dimensional snapshots.
         """
+        if not self._is_trained():
+            raise AttributeError("transformer not trained "
+                                 "(call fit_transform())")
+
         Y = X if inplace else X.copy()
 
         # Unscale (re-dimensionalize) the data.
@@ -658,15 +753,3 @@ class SnapshotTransformer:
 #
 #     def untransform(self, X):
 #         return X
-
-
-# Deprecations ================================================================
-
-def mean_shift(X):                              # pragma nocover
-    np.warnings.warn("mean_shift() has been renamed shift()",
-                     DeprecationWarning, stacklevel=1)
-    a,b = shift(X)
-    return b,a
-
-
-mean_shift.__doc__ = "\nDEPRECATED! use shift().\n\n" + shift.__doc__

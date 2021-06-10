@@ -1,6 +1,8 @@
 # pre/test_shift_scale.py
 """Tests for rom_operator_inference.pre._shift_scale.py."""
 
+import os
+import h5py
 import pytest
 import itertools
 import numpy as np
@@ -14,14 +16,14 @@ def test_shift(set_up_basis_data):
     X = set_up_basis_data
 
     # Try with bad data shape.
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError) as ex:
         opinf.pre.shift(np.random.random((3,3,3)))
-    assert exc.value.args[0] == "data X must be two-dimensional"
+    assert ex.value.args[0] == "data X must be two-dimensional"
 
     # Try with bad shift vector.
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError) as ex:
         opinf.pre.shift(X, X)
-    assert exc.value.args[0] == "shift_by must be one-dimensional"
+    assert ex.value.args[0] == "shift_by must be one-dimensional"
 
     # Correct usage.
     Xshifted, xbar = opinf.pre.shift(X)
@@ -45,13 +47,13 @@ def test_scale(set_up_basis_data):
     X = set_up_basis_data
 
     # Try with bad scales.
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError) as ex:
         opinf.pre.scale(X, (1,2,3), (4,5))
-    assert exc.value.args[0] == "scale_to must have exactly 2 elements"
+    assert ex.value.args[0] == "scale_to must have exactly 2 elements"
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError) as ex:
         opinf.pre.scale(X, (1,2), (3,4,5))
-    assert exc.value.args[0] == "scale_from must have exactly 2 elements"
+    assert ex.value.args[0] == "scale_from must have exactly 2 elements"
 
     # Scale X to [-1,1] and then scale Y with the same transformation.
     Xscaled, scaled_to, scaled_from = opinf.pre.scale(X, (-1,1))
@@ -81,24 +83,198 @@ class TestSnapshotTransformer:
         st = opinf.pre.SnapshotTransformer()
 
         # Test center.
-        with pytest.raises(TypeError) as exc:
+        with pytest.raises(TypeError) as ex:
             st.center = "nope"
-        assert exc.value.args[0] == "'center' must be True or False"
+        assert ex.value.args[0] == "'center' must be True or False"
         st.center = True
         st.center = False
 
         # Test scale.
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(ValueError) as ex:
             st.scaling = "minimaxii"
-        assert exc.value.args[0].startswith("invalid scaling 'minimaxii'")
+        assert ex.value.args[0].startswith("invalid scaling 'minimaxii'")
 
-        with pytest.raises(TypeError) as exc:
+        with pytest.raises(TypeError) as ex:
             st.scaling = [2, 1]
-        assert exc.value.args[0] == "'scaling' must be of type 'str'"
+        assert ex.value.args[0] == "'scaling' must be of type 'str'"
 
         for s in st._VALID_SCALINGS:
             st.scaling = s
         st.scaling = None
+
+    def test_is_trained(self):
+        """Test pre.SnapshotTransformer._is_trained()."""
+        st = opinf.pre.SnapshotTransformer()
+
+        # Null transformer is always trained.
+        st.center = False
+        st.scaling = None
+        assert st._is_trained() is True
+
+        # Centering.
+        st.center = True
+        assert st._is_trained() is False
+        st.mean_ = np.array([1,2,3])
+        assert st._is_trained() is True
+
+        # Scaling.
+        st.center = False
+        st.scaling = "minmax"
+        assert st._is_trained() is False
+        st.scale_ = 10
+        assert st._is_trained() is False
+        st.shift_ = 20
+        assert st._is_trained() is True
+
+    def test_eq(self, n=200):
+        """Test pre.SnapshotTransformer.__eq__()."""
+        µ = np.random.randint(0, 100, (n,))
+        a, b = 10, -3
+
+        # Null transformers.
+        st1 = opinf.pre.SnapshotTransformer()
+        st2 = opinf.pre.SnapshotTransformer()
+        assert st1 == st2
+        assert st1 != 100
+
+        # Mismatched attributes.
+        st1.center = True
+        st2.center = False
+        assert not (st1 == st2)
+        assert st1 != st2
+
+        # Centering attributes.
+        st1.mean_ = µ
+        st2.center = True
+        assert st1 != st2
+        st2.mean_ = µ
+        assert st1 == st2
+        st2.mean_ = µ - 5
+        assert st1 != st2
+
+        # Scaling attributes.
+        st1.scaling = "standard"
+        st2.scaling = None
+        assert st1 != st2
+        st2.scaling = "minmax"
+        assert st1 != st2
+        st2.scaling = "standard"
+        assert st1 == st2
+        st1.scale_, st1.shift_ = a, b
+        assert st1 != st2
+        st2.scale_, st2.shift_ = a - 1, b + 1
+        assert st1 != st2
+        st2.scale_, st2.shift_ = a, b
+        assert st1 == st2
+
+    def test_str(self):
+        """Test pre.SnapshotTransformer.__str__()."""
+        st = opinf.pre.SnapshotTransformer()
+
+        st.center = False
+        st.scaling = None
+        assert str(st) == "Snapshot transformer"
+
+        st.center = True
+        msc = "Snapshot transformer with mean-snapshot centering"
+        assert str(st) == msc
+        for s in st._VALID_SCALINGS:
+            st.scaling = s
+            assert str(st) == f"{msc} and '{s}' scaling"
+
+        st.center = False
+        for s in st._VALID_SCALINGS:
+            st.scaling = s
+            assert str(st) == f"Snapshot transformer with '{s}' scaling"
+
+    def test_statistics_report(self):
+        """Test pre.SnapshotTransformer._statistics_report()."""
+        X = np.arange(10) - 4
+        report = opinf.pre.SnapshotTransformer._statistics_report(X)
+        assert report == "-4.000e+00 |  5.000e-01 |  5.000e+00 |  2.872e+00"
+
+    def test_save(self, n=200, k=50):
+        """Test pre.SnapshotTransformer.save()."""
+        # Clean up after old tests.
+        target = "_savetransformertest.h5"
+        if os.path.isfile(target):              # pragma: no cover
+            os.remove(target)
+
+        def _checkfile(filename, st):
+            assert os.path.isfile(filename)
+            with h5py.File(filename, 'r') as hf:
+                # Check transformation metadata.
+                assert "meta" in hf
+                assert len(hf["meta"]) == 0
+                for attr in ("center", "scaling", "verbose"):
+                    assert attr in hf["meta"].attrs
+                    if attr == "scaling" and st.scaling is None:
+                        assert not hf["meta"].attrs[attr]
+                    else:
+                        assert hf["meta"].attrs[attr] == getattr(st, attr)
+
+                # Check transformation parameters.
+                if st.center:
+                    assert "transformation/mean_" in hf
+                    assert np.all(hf["transformation/mean_"][:] == st.mean_)
+                if st.scaling:
+                    assert "transformation/scale_" in hf
+                    assert hf["transformation/scale_"][0] == st.scale_
+                    assert "transformation/shift_" in hf
+                    assert hf["transformation/shift_"][0] == st.shift_
+
+        # Check file creation and overwrite protocol on null transformation.
+        st = opinf.pre.SnapshotTransformer()
+        st.save(target[:-3])
+        _checkfile(target, st)
+
+        with pytest.raises(FileExistsError) as ex:
+            st.save(target, overwrite=False)
+        assert ex.value.args[0] == target
+
+        st.save(target, overwrite=True)
+        _checkfile(target, st)
+
+        # Check non-null transformations.
+        X = np.random.randint(0, 100, (n,k)).astype(float)
+        for scaling, center in itertools.product({None, *st._VALID_SCALINGS},
+                                                 (True, False)):
+            st.center = center
+            st.scaling = scaling
+            st.fit_transform(X)
+            st.save(target, overwrite=True)
+            _checkfile(target, st)
+
+        os.remove(target)
+
+    def test_load(self, n=200, k=50):
+        """Test pre.SnapshotTransformer.load()."""
+        # Clean up after old tests.
+        target = "_loadtransformertest.h5"
+        if os.path.isfile(target):              # pragma: no cover
+            os.remove(target)
+
+        # Try to load a bad file.
+        with h5py.File(target, 'w'):
+            pass
+
+        with pytest.raises(ValueError) as ex:
+            opinf.pre.SnapshotTransformer.load(target)
+        assert ex.value.args[0] == "invalid save format (meta/ not found)"
+
+        # Check that save() -> load() gives the same transformer.
+        st = opinf.pre.SnapshotTransformer()
+        X = np.random.randint(0, 100, (n,k)).astype(float)
+        for scaling, center in itertools.product({None, *st._VALID_SCALINGS},
+                                                 (True, False)):
+            st.scaling = scaling
+            st.center = center
+            st.fit_transform(X, inplace=False)
+            st.save(target, overwrite=True)
+            st2 = opinf.pre.SnapshotTransformer.load(target)
+            assert st == st2
+
+        os.remove(target)
 
     def test_fit_transform(self, n=200, k=50):
         """Test pre.SnapshotTransformer.fit_transform()."""
@@ -113,7 +289,7 @@ class TestSnapshotTransformer:
             assert B.shape == A.shape
             return B
 
-        st = opinf.pre.SnapshotTransformer(verbose=False)
+        st = opinf.pre.SnapshotTransformer(verbose=True)
 
         # Test null transformation.
         st.center = False
@@ -188,6 +364,10 @@ class TestSnapshotTransformer:
         # Test mean shift.
         st.center = True
         st.scaling = None
+        with pytest.raises(AttributeError) as ex:
+            st.transform(Y, inplace=False)
+        assert ex.value.args[0] == \
+            "transformer not trained (call fit_transform())"
         st.fit_transform(X)
         µ = st.mean_
         Z = st.transform(Y, inplace=False)
@@ -208,6 +388,12 @@ class TestSnapshotTransformer:
         """Test pre.SnapshotTransformer.inverse_transform()."""
         X = np.random.randint(0, 100, (n,k)).astype(float)
         st = opinf.pre.SnapshotTransformer(verbose=False)
+
+        st.center = True
+        with pytest.raises(AttributeError) as ex:
+            st.inverse_transform(X, inplace=False)
+        assert ex.value.args[0] == \
+            "transformer not trained (call fit_transform())"
 
         for scaling, center in itertools.product({None, *st._VALID_SCALINGS},
                                                  (True, False)):
@@ -234,9 +420,9 @@ class TestSnapshotTransformer:
 #         st = opinf.pre.SnapshotTransformer()
 #
 #         # Test num_variables.
-#         with pytest.raises(TypeError) as exc:
+#         with pytest.raises(TypeError) as ex:
 #             st.num_variables = 1.5
-#         assert exc.value.args[0] == "num_variables must be an integer"
+#         assert ex.value.args[0] == "num_variables must be an integer"
 #
 #         st.num_variables = 1
 #         st.num_variables = 2
@@ -244,21 +430,21 @@ class TestSnapshotTransformer:
 #
 #         # Test variable_names.
 #         st.num_variables = 1
-#         with pytest.raises(ValueError) as exc:
+#         with pytest.raises(ValueError) as ex:
 #             st.variable_names = [0, 1]
-#         assert exc.value.args[0] == \
+#         assert ex.value.args[0] == \
 #             "2 = len(variable_names) != num_variables = 1"
 #         st.variable_names = "fred"
 #
 #         # Test scale.
 #         st.num_variables = 1
-#         with pytest.raises(ValueError) as exc:
+#         with pytest.raises(ValueError) as ex:
 #             st.scaling = "minimaxi"
-#         assert exc.value.args[0] == "invalid scaling 'minimaxi'"
+#         assert ex.value.args[0] == "invalid scaling 'minimaxi'"
 #
-#         with pytest.raises(ValueError) as exc:
+#         with pytest.raises(ValueError) as ex:
 #             st.scaling = [2, 1]
-#         assert exc.value.args[0] == "invalid scaling '[2, 1]'"
+#         assert ex.value.args[0] == "invalid scaling '[2, 1]'"
 #
 #         for s in list(st._VALID_SCALINGS) + [True, [-3, 7]]:
 #             st.scaling = s
