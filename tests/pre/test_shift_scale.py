@@ -802,7 +802,7 @@ class TestSnapshotTransformerMulti:
 
         X = np.random.randint(0, 100, (120,29)).astype(float)
         with pytest.raises(AttributeError) as ex:
-            stm.inverse_transform(X, inplace=False)
+            stm.transform(X, inplace=False)
         assert ex.value.args[0] == \
             "transformer not trained (call fit_transform())"
 
