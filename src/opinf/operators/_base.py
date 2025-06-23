@@ -23,7 +23,7 @@ from .. import errors, utils
 
 class InputMixin(abc.ABC):
     r"""Mixin for operators whose ``apply()`` method acts on the input
-    :math:`\u`.
+    :math:`\u\in\mathbb{R}^{m}`.
 
     Operators that do not inherit from this Mixin do not have an
     ``input_dimension`` attribute, which indicates :math:`m = 0`.
