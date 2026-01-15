@@ -1,7 +1,7 @@
 # How to Contribute
 
 Thank you for your interest in contributing to `opinf`!
-Before you begin, please review our [Code of Conduct](https://github.com/Willcox-Research-Group/rom-operator-inference-Python3/blob/main/CODE_OF_CONDUCT.md).
+Before you begin, please review our [Code of Conduct](https://github.com/operator-inference/opinf/blob/main/CODE_OF_CONDUCT.md).
 
 :::{admonition} Summary
 
@@ -20,16 +20,16 @@ Contributing to this project requires familiarity with GitHub and `git`.
 If you are unfamiliar with either, start with the [GitHub tutorial](https://docs.github.com/en/get-started/quickstart/hello-world) or the [git tutorial](https://git-scm.com/docs/gittutorial).
 :::
 
-Now that you are a `git` expert, [fork](https://docs.github.com/en/get-started/quickstart/fork-a-repo) [the GitHub repository](https://github.com/Willcox-Research-Group/rom-operator-inference-Python3) and [clone your fork](https://docs.github.com/en/get-started/quickstart/fork-a-repo#cloning-your-forked-repository).
+Now that you are a `git` expert, [fork](https://docs.github.com/en/get-started/quickstart/fork-a-repo) [the GitHub repository](https://github.com/operator-inference/opinf) and [clone your fork](https://docs.github.com/en/get-started/quickstart/fork-a-repo#cloning-your-forked-repository).
 Add the original repository as [an upstream remote](https://docs.github.com/en/get-started/quickstart/fork-a-repo#configuring-git-to-sync-your-fork-with-the-original-repository).
 
 ```bash
-git clone git@github.com:<username>/rom-operator-inference-Python3.git OpInf
+git clone git@github.com:<username>/opinf.git OpInf
 cd OpInf
-git remote add upstream git@github.com:Willcox-Research-Group/rom-operator-inference-Python3.git
+git remote add upstream git@github.com:operator-inference/opinf.git
 ```
 
-Like most Python packages, `opinf` has a few [software dependencies](https://github.com/Willcox-Research-Group/rom-operator-inference-Python3/network/dependencies).
+Like most Python packages, `opinf` has a few [software dependencies](https://github.com/operator-inference/opinf/network/dependencies).
 To avoid conflicts with other installed packages, we recommend installing `opinf` within a new [conda environment](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) (recommended) or [virtual Python environment](https://docs.python.org/3/tutorial/venv.html) .
 
 ```shell
@@ -99,7 +99,7 @@ git switch <mynewbranch>      # Switch to the new branch to do work.
 ```
 
 You are now ready to make edits on your newly created local branch.
-When you're ready, [create a pull request](https://docs.github.com/en/get-started/quickstart/contributing-to-projects#making-a-pull-request) to merge the changes into `Willcox-Research-Group:main`.
+When you're ready, [create a pull request](https://docs.github.com/en/get-started/quickstart/contributing-to-projects#making-a-pull-request) to merge the changes into `operator-inference:main`.
 
 ## Repository Organization
 
@@ -112,10 +112,10 @@ They should be written as Jupyter notebooks and placed in `docs/content/tutorial
 
 The GitHub repository is organized as follows.
 
-- [`src/opinf/`](https://github.com/Willcox-Research-Group/rom-operator-inference-Python3/tree/main/src/opinf) contains the actual package code.
-- [`tests/`](https://github.com/Willcox-Research-Group/rom-operator-inference-Python3/tree/main/tests) contains tests to be run with [`pytest`](https://docs.pytest.org/en/7.0.x/) (via `tox`).
+- [`src/opinf/`](https://github.com/operator-inference/opinf/tree/main/src/opinf) contains the actual package code.
+- [`tests/`](https://github.com/operator-inference/opinf/tree/main/tests) contains tests to be run with [`pytest`](https://docs.pytest.org/en/7.0.x/) (via `tox`).
   The file structure of `tests/` should mirror the file structure of `src/opinf/`. See [Testing Source Code](./testing.md).
-- [`docs/`](https://github.com/Willcox-Research-Group/rom-operator-inference-Python3/tree/main/docs) contains documentation (including this page!). See [Documentation](./documentation.md).
+- [`docs/`](https://github.com/operator-inference/opinf/tree/main/docs) contains documentation (including this page!). See [Documentation](./documentation.md).
 
 ## Acceptance Standards
 

@@ -5,6 +5,16 @@
 New versions may introduce substantial new features or API adjustments.
 :::
 
+## Version 0.6.0
+
+Updates to the documentation to reflect the new address.
+No changes to package functionality.
+
+## ⭐ We've Moved ⭐
+
+The `opinf` repository is now hosted at [github.com/operator-inference/opinf](https://github.com/operator-inference/opinf).
+The previous address, github.com/Willcox-Research-Group/rom-operator-inference-Python3, now directs to this new address.
+
 ## Version 0.5.17
 
 - Dropped support for Python 3.9, added test coverage for Python 3.14.
@@ -278,4 +288,4 @@ After:
 ## Versions 0.4.0 and 0.4.1
 
 This version is a migration of the old `rom_operator_inference` package, version 1.4.1.
-See [this page](https://github.com/Willcox-Research-Group/rom-operator-inference-Python3/wiki/API-Reference) for the documentation.
+See [this page](https://github.com/operator-inference/opinf/wiki/API-Reference) for the documentation.

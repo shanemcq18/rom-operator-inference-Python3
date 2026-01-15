@@ -7,9 +7,11 @@ name = "opinf"
 description = "Operator Inference for data-driven model reduction of dynamical systems."
 dynamic = ["version"]
 authors = [
-    { name = "Willcox Research Group", email = "kwillcox@oden.utexas.edu" },
+    { name = "Shane A. McQuarrie, Karen E. Willcox, and OpInf Contributors", email = "shanemcq@mathematics.byu.edu" },
 ]
-maintainers = [{ name = "Shane A. McQuarrie", email = "smcquar@sandia.gov" }]
+maintainers = [
+    { name = "Shane A. McQuarrie", email = "shanemcq@mathematics.byu.edu" },
+]
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -51,9 +53,9 @@ dev = [
 ]
 
 [project.urls]
-homepage = "https://willcox-research-group.github.io/rom-operator-inference-Python3/source/index.html"
-documentation = "https://willcox-research-group.github.io/rom-operator-inference-Python3/source/index.html"
-repository = "https://github.com/Willcox-Research-Group/rom-operator-inference-Python3.git"
+homepage = "https://operator-inference.github.io/opinf/source/index.html"
+documentation = "https://operator-inference.github.io/opinf/source/index.html"
+repository = "https://github.com/operator-inference/opinf.git"
 
 [tool.black]
 line-length = 79

@@ -1,14 +1,16 @@
 # Operator Inference in Python
 
-[![License](https://img.shields.io/github/license/Willcox-Research-Group/rom-operator-inference-python3)](https://github.com/Willcox-Research-Group/rom-operator-inference-python3/blob/main/LICENSE)
-[![Top language](https://img.shields.io/github/languages/top/Willcox-Research-Group/rom-operator-inference-python3)](https://www.python.org)
-![Code size](https://img.shields.io/github/languages/code-size/Willcox-Research-Group/rom-operator-inference-python3)
-[![Issues](https://img.shields.io/github/issues/Willcox-Research-Group/rom-operator-inference-python3)](https://github.com/Willcox-Research-Group/rom-operator-inference-python3/issues)
-[![Latest commit](https://img.shields.io/github/last-commit/Willcox-Research-Group/rom-operator-inference-python3)](https://github.com/Willcox-Research-Group/rom-operator-inference-python3/commits/main)
+[![License](https://img.shields.io/github/license/operator-inference/opinf)](https://github.com/operator-inference/opinf/blob/main/LICENSE)
+[![Top language](https://img.shields.io/github/languages/top/operator-inference/opinf)](https://www.python.org)
+![Code size](https://img.shields.io/github/languages/code-size/operator-inference/opinf)
+[![Issues](https://img.shields.io/github/issues/operator-inference/opinf)](https://github.com/operator-inference/opinf/issues)
+[![Latest commit](https://img.shields.io/github/last-commit/operator-inference/opinf)](https://github.com/operator-inference/opinf/commits/main)
 [![PyPI](https://img.shields.io/pypi/wheel/opinf)](https://pypi.org/project/opinf/)
 
 :::{attention}
-This documentation is for `opinf` version `0.5.x`, which introduced major changes from the previous version `0.4.5`.
+This documentation is for `opinf` version `0.6.0`.
+The `opinf` package is a research code that is still in rapid development.
+New versions may introduce substantial new features or API adjustments.
 See updates and notes for old versions [here](./opinf/changelog.md).
 :::
 

@@ -1,13 +1,12 @@
 # __init__.py
 """Operator Inference for data-driven model reduction of dynamical systems.
 
-Author: Willcox Research Group
+Author: Shane A. McQuarrie, Karen Willcox, and OpInf Contributors
 Maintainer: Shane A. McQuarrie
-GitHub:
-    https://github.com/Willcox-Research-Group/rom-operator-inference-Python3
+GitHub: https://github.com/operator-inference/opinf
 """
 
-__version__ = "0.5.17"
+__version__ = "0.6.0"
 
 from . import (
     basis,
