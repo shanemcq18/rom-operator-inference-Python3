@@ -54,7 +54,20 @@ class _BaseRegularizedSolver(SolverTemplate):
 
     .. math::
         (\D\trp\D + \bfGamma_i\trp\bfGamma_i)\ohat_i = \D\trp\z_i.
+
+    If an initial guess :math:`\Ohat^{(0)}` is provided, the minimization
+    problem is changed to
+
+    .. math::
+       \argmin_{\ohat_i}
+       \|\D\ohat_i - \z_i\|_2^2
+       + \sum_{i=1}^{r}\|\bfGamma_i(\ohat_i - \ohat_i^{(0)})\|_2^2,
+       \quad i = 1, \ldots, r.
     """
+
+    def __init__(self, initial_guess=None):
+        SolverTemplate.__init__(self=self)
+        self.initial_guess = initial_guess
 
     # Properties: regularization ----------------------------------------------
     @abc.abstractmethod
@@ -62,9 +75,23 @@ class _BaseRegularizedSolver(SolverTemplate):
         """Regularization scalar, matrix, or list of these."""
         raise NotImplementedError  # pragma: no cover
 
+    @property
+    def initial_guess(self):
+        r"""Initial guess :math:`\Ohat^{(0)}` for the regression solution."""
+        return self.__Ohat0
+
+    @initial_guess.setter
+    def initial_guess(self, Ohat0):
+        if Ohat0 is not None and not hasattr(Ohat0, "shape"):
+            raise TypeError("initial_guess must be ndarray or None")
+        self.__Ohat0 = Ohat0
+
     # Main methods ------------------------------------------------------------
     def fit(self, data_matrix: np.ndarray, lhs_matrix: np.ndarray):
         r"""Verify dimensions and save the data matrices.
+
+        If an :attr:`initial_guess` was provided during the initialization,
+        use ``lhs_matrix - initial_guess`` for the residual data matrix.
 
         Parameters
         ----------
@@ -74,6 +101,39 @@ class _BaseRegularizedSolver(SolverTemplate):
             "Left-hand side" data matrix :math:`\Z` (not its transpose!).
             If one-dimensional, assume :math:`r = 1`.
         """
+        if self.initial_guess is not None:
+
+            # check if initial guess fits to data matrix shape
+            if self.initial_guess.shape[1] != data_matrix.shape[1]:
+                raise RuntimeError(
+                    f"""In _BaseRegularizedSolver.fit:
+                    Shape of data matrix ({data_matrix.shape})
+                    does not match initial guess
+                    ({self.initial_guess.shape})"""
+                )
+
+            # check if initial guess shape fits to lhs matrix shape
+            if self.initial_guess.shape[0] != lhs_matrix.shape[0]:
+                raise RuntimeError(
+                    f"""In _BaseRegularizedSolver.fit:
+                    Shape of lhs matrix ({lhs_matrix.shape})
+                    does not match initial guess
+                    (shape {self.initial_guess.shape})"""
+                )
+            if (
+                len(lhs_matrix.shape) == 1
+                and len(self.initial_guess.shape) != 1
+            ):
+                raise RuntimeError(
+                    f"""In _BaseRegularizedSolver.fit:
+                    Shape of lhs matrix (shape {lhs_matrix.shape} columns)
+                    does not match initial guess
+                    (shape {self.initial_guess.shape})"""
+                )
+
+            # adjust lhs matrix
+            lhs_matrix -= (data_matrix @ self.initial_guess.T).T
+
         SolverTemplate.fit(self, data_matrix, lhs_matrix)
         if self.k < self.d:
             warnings.warn(
@@ -111,6 +171,20 @@ class _BaseRegularizedSolver(SolverTemplate):
     def regresidual(self, Ohat: np.ndarray) -> np.ndarray:
         """Compute the residual of the regularized regression problem."""
         raise NotImplementedError  # pragma: no cover
+
+    def _add_initial_guess(self, Ohat):
+        """Adds the initial guess if one was provided.
+        Does nothing otherwise."""
+        if self.initial_guess is None:
+            return Ohat
+        return Ohat + self.initial_guess
+
+    def _subtract_initial_guess(self, Ohat):
+        """Subtracts the initial guess if one was provided.
+        Does nothing otherwise."""
+        if self.initial_guess is None:
+            return Ohat
+        return Ohat - self.initial_guess
 
     # Persistence -------------------------------------------------------------
     def reset(self) -> None:
@@ -151,6 +225,9 @@ class _BaseRegularizedSolver(SolverTemplate):
                 for attr in extras:
                     hf.create_dataset(attr, data=getattr(self, attr))
 
+            if self.initial_guess is not None:
+                hf.create_dataset("initial_guess", data=self.initial_guess)
+
     @classmethod
     def _load(cls, loadfile: str, extras=tuple()):
         """Load a serialized solver from an HDF5 file, created previously from
@@ -176,10 +253,12 @@ class _BaseRegularizedSolver(SolverTemplate):
                 if cls is L2Solver:
                     reg = reg[0]
 
+            if "initial_guess" in hf:
+                cls.initial_guess = hf["initial_guess"]
+
             options = cls._load_dict(hf, "options")
             kwargs = dict(
-                regularizer=reg,
-                lapack_driver=options["lapack_driver"],
+                regularizer=reg, lapack_driver=options["lapack_driver"]
             )
 
             if issubclass(cls, TikhonovSolver):
@@ -228,6 +307,13 @@ class L2Solver(_BaseRegularizedSolver):
     :math:`\bfSigma^{*}` is a diagonal matrix with :math:`i`-th diagonal entry
     :math:`\Sigma_{i,i}^{*} = \Sigma_{i,i}/(\Sigma_{i,i}^{2} + \lambda^2).`
 
+    If an initial guess :math:`\Ohat^{(0)}` is provided, the original
+    minimization problem is changed to
+
+    .. math::
+        \argmin_{\Ohat}\|\D\Ohat\trp - \Z\trp\|_F^2
+        + \|\lambda(\Ohat - \Ohat^{(0)})\trp\|_F^2
+
     Parameters
     ----------
     regularizer : float
@@ -235,11 +321,19 @@ class L2Solver(_BaseRegularizedSolver):
     lapack_driver : str
         LAPACK routine for computing the singular value decomposition.
         See :func:`scipy.linalg.svd()`.
+    initial_guess : ndarray or None
+        Initial guess :math:`\Ohat^{(0)}` for the regression solution.
+        Defaults to zero.
     """
 
-    def __init__(self, regularizer=None, lapack_driver: str = "gesdd"):
+    def __init__(
+        self,
+        regularizer=None,
+        lapack_driver: str = "gesdd",
+        initial_guess=None,
+    ):
         """Store the regularizer and initialize attributes."""
-        _BaseRegularizedSolver.__init__(self)
+        _BaseRegularizedSolver.__init__(self, initial_guess=initial_guess)
         self.regularizer = regularizer
         self.__options = types.MappingProxyType(
             dict(full_matrices=False, lapack_driver=lapack_driver)
@@ -323,7 +417,8 @@ class L2Solver(_BaseRegularizedSolver):
             raise AttributeError("solver regularizer not set")
         svals = self._svals.reshape((-1, 1))
         svals_inv = svals / (svals**2 + self.regularizer**2)
-        return (self._ZPhi * svals_inv.T) @ self._PsiT
+        Odiff = (self._ZPhi * svals_inv.T) @ self._PsiT
+        return self._add_initial_guess(Odiff)
 
     def posterior(self):
         r"""Solve the Bayesian operator inference regression, constructing the
@@ -403,11 +498,13 @@ class L2Solver(_BaseRegularizedSolver):
         Specifically, given a potential :math:`\Ohat`, compute
 
         .. math::
-           \|\D\ohat_i - \z_i\|_2^2 + \|\lambda\ohat_i\|_2^2,
+           \|\D\ohat_i - \z_i\|_2^2 + \|\lambda(\ohat_i-\ohat_i^{(0)})\|_2^2,
            \quad i = 1, \ldots, r,
 
         where :math:`\ohat_i` and :math:`\z_i` are the :math:`i`-th rows of
-        :math:`\Ohat` and :math:`\Z`, respectively.
+        :math:`\Ohat` and :math:`\Z`, respectively, and :math:`\ohat_i^{(0)}`
+        are the rows of the initial guess set during initialization.
+        If no initial guess was provided, :math:`\ohat_i^{(0)} = \bf0`
 
         Parameters
         ----------
@@ -421,8 +518,9 @@ class L2Solver(_BaseRegularizedSolver):
         """
         if self.regularizer is None:
             raise AttributeError("solver regularizer not set")
-        residual = self.residual(Ohat)
-        return residual + (self.regularizer**2 * np.sum(Ohat**2, axis=-1))
+        Odiff = self._subtract_initial_guess(Ohat)
+        residual = self.residual(Odiff)
+        return residual + (self.regularizer**2 * np.sum(Odiff**2, axis=-1))
 
     # Persistence -------------------------------------------------------------
     def save(self, savefile: str, overwrite: bool = False):
@@ -495,6 +593,15 @@ class L2DecoupledSolver(L2Solver):
     using the singular value decomposition of the data matrix
     (see :class:`L2Solver`).
 
+    If initial guesses :math:`\Ohat^{(0)}` is provided, the original
+    minimization problem is changed to
+
+    .. math::
+        \argmin_{\Ohat}\|\D\ohat_i - \z_i\|_2^2
+        + \|\lambda_i(\ohat_i - \ohat_i^{(0)})\|_2^2
+
+    where :math:`\ohat_i^{(0)}` are the rows of :math:`\Ohat^{(0)}`.
+
     Parameters
     ----------
     regularizer : (r,) ndarray
@@ -503,6 +610,9 @@ class L2DecoupledSolver(L2Solver):
     lapack_driver : str
         LAPACK routine for computing the singular value decomposition.
         See :func:`scipy.linalg.svd()`.
+    initial_guess : ndarray or None
+        Initial guess :math:`\Ohat^{(0)}` for the regression solution.
+        Defaults to zero.
     """
 
     # Properties --------------------------------------------------------------
@@ -627,12 +737,15 @@ class L2DecoupledSolver(L2Solver):
         Specifically, given a potential :math:`\Ohat`, compute
 
         .. math::
-           \|\D\ohat_i - \z_i\|_2^2 + \|\lambda_i\ohat_i\|_2^2,
+           \|\D\ohat_i - \z_i\|_2^2 + \|\lambda_i(\ohat_i-\ohat_i^{(0)})\|_2^2,
            \quad i = 1, \ldots, r,
 
         where :math:`\ohat_i` and :math:`\z_i` are the :math:`i`-th rows of
         :math:`\Ohat` and :math:`\Z`, respectively, and :math:`\lambda_i \ge 0`
         is the corresponding regularization constant.
+        If an initial guess was provided during initialization,
+        :math:`\ohat_i^{(0)}` are the rows of the initial guess. Otherwise
+        :math:`\ohat_i^{(0)} = \bf0`.
 
         Parameters
         ----------
@@ -677,6 +790,13 @@ class TikhonovSolver(_BaseRegularizedSolver):
     .. math::
        \Ohat = \Z\D(\D\trp\D + \bfGamma\trp\bfGamma)^{-\mathsf{T}}.
 
+    If initial guesses :math:`\Ohat^{(0)}` is provided, the original
+    minimization problem is changed to
+
+    .. math::
+        \argmin_\Ohat\|\D\Ohat\trp - \Z\trp\|_F^2
+        + \|\bfGamma(\Ohat - \Ohat^{(0)})\trp)\|_F^2
+
     Parameters
     ----------
     regularizer : (d, d) or (d,) ndarray
@@ -701,6 +821,9 @@ class TikhonovSolver(_BaseRegularizedSolver):
     lapack_driver : str or None
         Which LAPACK driver is used to solve the least-squares problem,
         see :func:`scipy.linalg.lstsq()`. Ignored if ``method = "normal"``.
+    initial_guess : ndarray or None
+        Initial guess :math:`\Ohat^{(i)}` for the regularization solution.
+        Defaults to zero.
     """
 
     def __init__(
@@ -709,9 +832,10 @@ class TikhonovSolver(_BaseRegularizedSolver):
         method: str = "lstsq",
         cond: float = None,
         lapack_driver: str = None,
+        initial_guess=None,
     ):
         """Store the regularizer and initialize attributes."""
-        _BaseRegularizedSolver.__init__(self)
+        _BaseRegularizedSolver.__init__(self, initial_guess=initial_guess)
         self.regularizer = regularizer
         self.method = method
         self.__options = dict(cond=cond, lapack_driver=lapack_driver)
@@ -951,7 +1075,7 @@ class TikhonovSolver(_BaseRegularizedSolver):
         elif self.method == "normal":
             regD = self._DtD + (self.regularizer.T @ self.regularizer)
             Ohat = la.solve(regD, self._DtZt, assume_a="pos").T
-        return Ohat
+        return self._add_initial_guess(Ohat)
 
     def posterior(self):
         r"""Solve the Bayesian operator inference regression, constructing the
@@ -1024,11 +1148,13 @@ class TikhonovSolver(_BaseRegularizedSolver):
         Specifically, given a potential :math:`\Ohat`, compute
 
         .. math::
-           \|\D\ohat_i - \z_i\|_2^2 + \|\bfGamma\ohat_i\|_2^2,
+           \|\D\ohat_i - \z_i\|_2^2 + \|\bfGamma(\ohat_i-\ohat_i^{(0)})\|_2^2,
            \quad i = 1, \ldots, r,
 
         where :math:`\ohat_i` and :math:`\z_i` are the :math:`i`-th rows of
         :math:`\Ohat` and :math:`\Z`, respectively.
+        The :math:`\ohat_i^{(0)}` are the rows of the initial guess provided
+        during the initialization (defaulted to zero).
 
         Parameters
         ----------
@@ -1042,8 +1168,9 @@ class TikhonovSolver(_BaseRegularizedSolver):
         """
         if self.regularizer is None:
             raise AttributeError("solver regularizer not set")
-        residual = self.residual(Ohat)
-        return residual + np.sum((self.regularizer @ Ohat.T) ** 2, axis=0)
+        Odiff = self._subtract_initial_guess(Ohat)
+        residual = self.residual(Odiff)
+        return residual + np.sum((self.regularizer @ Odiff.T) ** 2, axis=0)
 
     def save(self, savefile: str, overwrite: bool = False):
         """Serialize the solver, saving it in HDF5 format.
@@ -1123,6 +1250,13 @@ class TikhonovDecoupledSolver(TikhonovSolver):
     .. math::
        (\D\trp\D + \bfGamma_i\trp\bfGamma_i)\ohat_i = \D\trp\z_i.
 
+    If initial guesses :math:`\Ohat^{(0)}` is provided, the original
+    minimization problem is changed to
+
+    .. math::
+        \argmin_\Ohat\|\D\Ohat\trp - \Z\trp\|_F^2
+        + \|\bfGamma(\Ohat - \Ohat^{(0)})\trp\|_F^2
+
     Parameters
     ----------
     regularizer : list of r (d, d) or (d,) ndarrays
@@ -1148,6 +1282,9 @@ class TikhonovDecoupledSolver(TikhonovSolver):
     lapack_driver : str or None
         Which LAPACK driver is used to solve the least-squares problem,
         see :func:`scipy.linalg.lstsq()`. Ignored if ``method = "normal"``.
+    initial_guess : ndarray or None
+        Initial guess :math:`\Ohat^{(0)}` for the regression solution.
+        Defaults to zero.
     """
 
     # Properties --------------------------------------------------------------
@@ -1215,7 +1352,7 @@ class TikhonovDecoupledSolver(TikhonovSolver):
             elif self.method == "normal":
                 regD = self._DtD + Gamma.T @ Gamma
                 Ohat[i] = la.solve(regD, self._DtZt[:, i], assume_a="pos")
-        return Ohat
+        return self._add_initial_guess(Ohat)
 
     def posterior(self):
         r"""Solve the Bayesian operator inference regression, constructing the
@@ -1295,12 +1432,15 @@ class TikhonovDecoupledSolver(TikhonovSolver):
         Specifically, given a potential :math:`\Ohat`, compute
 
         .. math::
-           \|\D\ohat_i - \z_i\|_2^2 + \|\bfGamma_i\ohat_i\|_2^2,
+           \|\D\ohat_i - \z_i\|_2^2
+           + \|\bfGamma_i(\ohat_i-\ohat_i^{(0)})\|_2^2,
            \quad i = 1, \ldots, r,
 
         where :math:`\ohat_i` and :math:`\z_i` are the :math:`i`-th rows of
         :math:`\Ohat` and :math:`\Z`, respectively, and :math:`\bfGamma_i` is
         the corresponding symmetric-positive-definite regularization matrix.
+        The :math:`\ohat_i^{(0)}` are the rows of the initial guess provided
+        during the initialization (defaulted to zero).
 
         Parameters
         ----------
@@ -1314,6 +1454,7 @@ class TikhonovDecoupledSolver(TikhonovSolver):
         """
         if self.regularizer is None:
             raise AttributeError("solver regularizer not set")
-        residual = self.residual(Ohat)
-        rg = [np.sum((G @ oi) ** 2) for G, oi in zip(self.regularizer, Ohat)]
+        Odiff = self._subtract_initial_guess(Ohat)
+        residual = self.residual(Odiff)
+        rg = [np.sum((G @ oi) ** 2) for G, oi in zip(self.regularizer, Odiff)]
         return residual + np.array(rg)

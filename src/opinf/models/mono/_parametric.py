@@ -22,6 +22,7 @@ from ._nonparametric import (
 )
 from ... import errors, utils, operators as _operators
 from ...operators import _utils as oputils
+from ...operators._polynomial_operator import PolynomialOperator
 
 
 # Base classes ================================================================
@@ -70,7 +71,15 @@ class _ParametricModel(_OpInfModel):
         of operation (e.g., two constant operators).
         """
         OpClasses = {
-            (op._OperatorClass if oputils.is_parametric(op) else type(op))
+            (
+                op._OperatorClass
+                if oputils.is_parametric(op)
+                else (
+                    op.polynomial_order
+                    if type(op) is PolynomialOperator
+                    else type(op)
+                )
+            )
             for op in ops
         }
         if len(OpClasses) != len(ops):
@@ -266,7 +275,7 @@ class _ParametricModel(_OpInfModel):
 
     def _fit_solver(self, parameters, states, lhs, inputs=None):
         """Construct a solver for the operator inference least-squares
-        regression."""
+        regression"""
         (
             parameters_,
             states_,
@@ -281,7 +290,8 @@ class _ParametricModel(_OpInfModel):
 
         # Set up non-intrusive learning.
         D = self._assemble_data_matrix(parameters_, states_, inputs_)
-        self.solver.fit(D, np.hstack(lhs_))
+        R = np.hstack(lhs_)
+        self.solver.fit(D, R)
         self.__s = len(parameters_)
 
     def _extract_operators(self, Ohat):
@@ -320,7 +330,7 @@ class _ParametricModel(_OpInfModel):
             return self
 
         # Execute non-intrusive learning.
-        self._extract_operators(self.solver.solve())
+        self._extract_operators(Ohat=self.solver.solve())
         return self
 
     def fit(self, parameters, states, lhs, inputs=None):
@@ -511,7 +521,13 @@ class _ParametricDiscreteMixin:
 
     _ModelClass = _FrozenDiscreteModel
 
-    def fit(self, parameters, states, nextstates=None, inputs=None):
+    def fit(
+        self,
+        parameters,
+        states,
+        nextstates=None,
+        inputs=None,
+    ):
         r"""Learn the model operators from data.
 
         The operators are inferred by solving the regression problem
@@ -799,7 +815,12 @@ class _ParametricContinuousMixin:
         -------
         self
         """
-        return super().fit(parameters, states, ddts, inputs=inputs)
+        return super().fit(
+            parameters,
+            states,
+            ddts,
+            inputs=inputs,
+        )
 
     def rhs(self, t, parameter, state, input_func=None):
         r"""Evaluate the right-hand side of the model by applying each operator
@@ -1150,11 +1171,7 @@ class _InterpModel(_ParametricModel):
                 ],
                 solver=self.solver.copy(),
             )
-            model_i._fit_solver(
-                states_[i],
-                lhs_[i],
-                inputs_[i],
-            )
+            model_i._fit_solver(states_[i], lhs_[i], inputs_[i])
             nonparametric_models.append(model_i)
 
         self.solvers = [mdl.solver for mdl in nonparametric_models]

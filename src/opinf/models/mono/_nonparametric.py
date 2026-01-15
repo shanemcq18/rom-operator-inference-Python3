@@ -244,6 +244,7 @@ class _NonparametricModel(_OpInfModel):
             states, lhs, inputs
         )
         D = self._assemble_data_matrix(states_, inputs_)
+
         self.solver.fit(D, lhs_)
 
     def refit(self):
@@ -266,7 +267,8 @@ class _NonparametricModel(_OpInfModel):
             return self
 
         # Execute non-intrusive learning.
-        self._extract_operators(self.solver.solve())
+        self._extract_operators(Ohat=self.solver.solve())
+
         return self
 
     def fit(self, states, lhs, inputs=None):
@@ -710,7 +712,12 @@ class DiscreteModel(_NonparametricModel):
             states = states[:, :-1]
         if inputs is not None:
             inputs = inputs[..., : states.shape[1]]
-        return _NonparametricModel.fit(self, states, nextstates, inputs=inputs)
+        return _NonparametricModel.fit(
+            self,
+            states,
+            nextstates,
+            inputs=inputs,
+        )
 
     def rhs(self, state, input_=None):
         r"""Evaluate the right-hand side of the model by applying each operator

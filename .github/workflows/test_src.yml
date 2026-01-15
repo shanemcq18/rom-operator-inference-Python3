@@ -22,11 +22,11 @@ jobs:
           - windows-latest
           - macos-latest
         python-version:
-          - "3.9"
           - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
+          - "3.14"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -39,5 +39,8 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install tox
       - name: Run tests
+        if: runner.os == 'Windows'
+        env:
+          MPLBACKEND: Agg  # Fix a bug in GitHub Actions for Windows
         run: |
           python -m tox -e py${{ matrix.python-version }}
